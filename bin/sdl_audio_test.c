@@ -17,6 +17,8 @@ exit
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
 
+#include <gbaudio/freq_gen.h>
+
 
 void logSDLError(FILE* fileno, const char *message)
 {
@@ -36,50 +38,6 @@ char downkey(SDL_Event *event)
 }
 
 static int const freq = 44100;
-
-typedef struct freq_gen_s {
-    int amplitude;
-    int note_hz;
-    int duty;
-    int ticks;
-    // Generate period during sound generation
-} freq_gen_t;
-
-int16_t gen_next(freq_gen_t *gen)
-{
-    int period = freq / gen->note_hz;
-    int ticks = gen->ticks;
-    if (ticks >= period) {
-        ticks -= period;
-    }
-    int16_t ret;
-
-    int duty = period / 8;
-    switch (gen->duty) {
-    case 0:
-        // 12.5% down duty cycle
-        break;
-    case 1:
-        // 25%
-        duty = duty * 2;
-        break;
-    case 2:
-        // 50%
-        duty = duty * 4;
-        break;
-    case 3:
-        // 75%
-        duty = duty * 6;
-        break;
-    }
-    if (ticks < duty) {
-        ret = gen->amplitude * -1;
-    } else {
-        ret = gen->amplitude;
-    }
-    gen->ticks = (ticks + 1);
-    return ret;
-}
 
 // 15-bit lfsr generator
 // XOR bits 0, 1, placed in bit 15.
@@ -141,7 +99,7 @@ static int const note_freq = 440;
 static freq_gen_t gen_real = {
     .amplitude = amplitude,
     .note_hz = note_freq,
-    .duty = 2,
+    .duty = duty_50,
     .ticks = 0,
 };
 
@@ -170,7 +128,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
 
     for (int i = 0; i < len/2; ++i) {
         if (true) {
-            abuf[i] = gen_next(gen);
+            abuf[i] = freq_gen_next(gen, freq);
         } else {
             abuf[i] = lfsr_gen_next(lfsr);
         }
