@@ -35,7 +35,7 @@ char downkey(SDL_Event *event)
     return '\0';
 }
 
-static int const freq = 48000;
+static int const freq = 44100;
 
 typedef struct freq_gen_s {
     int amplitude;
@@ -81,12 +81,12 @@ int16_t gen_next(freq_gen_t *gen)
     return ret;
 }
 
-static int amplitude = 8;
+static int const amplitude = 720;
 static int const note_freq = 440;
 static int const sample_period = (48000/440); // 109
 
 static freq_gen_t gen_real = {
-    .amplitude = 8,
+    .amplitude = amplitude,
     .note_hz = 440,
     .duty = 2,
     .ticks = 0,
@@ -97,7 +97,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     freq_gen_t *gen = &gen_real;
 
     int const abuf_len = 8192;
-    static uint8_t abuf[8192];
+    static uint16_t abuf[8192];
 
     // Silence the base stream.
     SDL_memset(stream, 0, len);
@@ -105,7 +105,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
         printf("stream buffer too large\n");
     }
 
-    for (int i = 0; i < len; ++i) {
+    for (int i = 0; i < len/2; ++i) {
         abuf[i] = gen_next(gen);
     }
 
@@ -119,13 +119,13 @@ void adjust_volume(char key)
     int amplitude = gen_real.amplitude;
     switch (key) {
     case 'u':
-        amplitude += 1;
-        if (amplitude > 127) {
-            amplitude = 127;
+        amplitude += 16;
+        if (amplitude > 32768) {
+            amplitude = 32768;
         }
         break;
     case 'd':
-        amplitude -= 1;
+        amplitude -= 16;
         if (amplitude < 0) {
             amplitude = 0;
         }
@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
     // AUDIO setup
     SDL_AudioSpec desired = {
         .freq = freq,
-        .format = AUDIO_S8,
+        .format = AUDIO_U16SYS,
         .channels = 1,
         .silence = 0,
         .samples = 4096,
