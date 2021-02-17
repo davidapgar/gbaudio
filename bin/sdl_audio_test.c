@@ -73,45 +73,29 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     memcpy(stream, abuf, len);
 }
 
-void adjust_volume(freq_gen_t *gen, char key)
+void adjust_freq_gen(freq_gen_t *gen, char key)
 {
-    int amplitude;
     switch (key) {
     case 'u':
-        amplitude = 16;
+        freq_gen_adjust_amplitude(gen, 16);
         break;
     case 'd':
-        amplitude = -16;
+        freq_gen_adjust_amplitude(gen, -16);
         break;
-
-    default:
-        return;
-    }
-    freq_gen_adjust_amplitude(gen, amplitude);
-    printf("Amplitude changed to %d\n", gen->amplitude);
-}
-
-void adjust_freq(freq_gen_t *gen, char key)
-{
-    int freq;
-    switch (key) {
     case 'l':
-        freq = -10;
+        freq_gen_adjust_frequency(gen, -10);
         break;
     case 'r':
-        freq = 10;
+        freq_gen_adjust_frequency(gen, 10);
+        break;
+    case 'w':
+        freq_gen_cycle_duty(gen);
         break;
     default:
         return;
     }
-    freq_gen_adjust_frequency(gen, freq);
-    printf("Frequence changed to %d\n", gen->frequency);
-}
-
-void adjust_duty(freq_gen_t *gen)
-{
-    freq_gen_cycle_duty(gen);
-    printf("Duty adjusted to %d\n", gen->duty);
+    printf("Frequence Gen adjust: Freq %d Amp %d Duty %d\n",
+        gen->frequency, gen->amplitude, gen->duty);
 }
 
 void draw_audio(SDL_Texture *texture, uint16_t *buf, int len)
@@ -259,18 +243,23 @@ int main(int argc, char* argv[])
             char key = downkey(&event);
             if (key != '\0') {
                 printf("Key pressed: %c\n", key);
-                if (key == 'q') {
+                switch (key) {
+                case 'q':
                     quit = true;
-                } else if (key == 'c') {
+                    break;
+                case 'c':
                     SDL_PauseAudioDevice(dev, 0);
-                } else if (key == 's') {
+                    break;
+                case 's':
                     SDL_PauseAudioDevice(dev, 1);
-                } else if (key == 'u' || key == 'd') {
-                    adjust_volume(&gen_real, key);
-                } else if (key == 'l' || key == 'r') {
-                    adjust_freq(&gen_real, key);
-                } else if (key == 'w') {
-                    adjust_duty(&gen_real);
+                    break;
+                case 'u':
+                case 'd':
+                case 'l':
+                case 'r':
+                case 'w':
+                    adjust_freq_gen(&gen_real, key);
+                    break;
                 }
             }
         }
