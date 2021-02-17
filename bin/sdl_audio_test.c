@@ -81,15 +81,77 @@ int16_t gen_next(freq_gen_t *gen)
     return ret;
 }
 
+// 15-bit lfsr generator
+// XOR bits 0, 1, placed in bit 15.
+// Also placed in bit 6 after shift if width is true.
+typedef struct lfsr_gen_s {
+    int amplitude;
+    uint16_t reg;
+    bool width;
+
+    int tick;
+    int update_period;
+    bool last;
+} lfsr_gen_t;
+
+int16_t lfsr_gen_next(lfsr_gen_t *gen)
+{
+    // Handle non-initialized case
+    if (gen->reg == 0) {
+        gen->reg = 1;
+    }
+
+    int16_t ret;
+    // Inverted
+    if (gen->last) {
+        ret = -gen->amplitude;
+    } else {
+        ret = gen->amplitude;
+    }
+
+    gen->tick += 1;
+    if (gen->tick >= gen->update_period) {
+        gen->tick -= gen->update_period;
+    }
+
+    if (gen->tick == 0) {
+        uint16_t reg = gen->reg;
+
+        // Get the feedback bit
+        uint16_t bit0 = reg & 0x01;
+        uint16_t bit1 = (reg >> 1) & 0x01;
+        uint16_t feedback = bit0 ^ bit1;
+
+        reg = reg >> 1;
+        reg = reg | (feedback << 14); // Set 15th bit (bit 14)
+        if (gen->width) {
+            reg = reg | (feedback << 6); // Set bit 6
+        }
+
+        gen->reg = reg;
+        gen->last = bit0;
+    }
+
+    return ret;
+}
+
 static int const amplitude = 72;
 static int const note_freq = 440;
-static int const sample_period = (48000/440); // 109
 
 static freq_gen_t gen_real = {
     .amplitude = amplitude,
-    .note_hz = 440,
+    .note_hz = note_freq,
     .duty = 2,
     .ticks = 0,
+};
+
+static lfsr_gen_t lfsr_real = {
+    .amplitude = amplitude,
+    .reg = 0x01,
+    .width = false,
+    .tick = 0,
+    .update_period = 8,
+    .last = false,
 };
 
 static int const abuf_len = 8192;
@@ -98,6 +160,7 @@ static uint16_t abuf[abuf_len];
 void audio_callback(void *userdata, Uint8* stream, int len)
 {
     freq_gen_t *gen = &gen_real;
+    lfsr_gen_t *lfsr = &lfsr_real;
 
     // Silence the base stream.
     SDL_memset(stream, 0, len);
@@ -106,7 +169,11 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     }
 
     for (int i = 0; i < len/2; ++i) {
-        abuf[i] = gen_next(gen);
+        if (true) {
+            abuf[i] = gen_next(gen);
+        } else {
+            abuf[i] = lfsr_gen_next(lfsr);
+        }
     }
 
     //SDL_MixAudioFormat(stream, abuf, AUDIO_S8, len, SDL_MIX_MAXVOLUME / 4);
@@ -349,14 +416,10 @@ int main(int argc, char* argv[])
             SDL_Delay(cur-last);
         }
     }
-shutdown_all:
     SDL_CloseAudioDevice(dev);
 
-shutdown_renderer:
     SDL_DestroyRenderer(renderer);
-shutdown_window:
     SDL_DestroyWindow(win);
-shutdown_quit:
     SDL_Quit();
 
     return 0;
