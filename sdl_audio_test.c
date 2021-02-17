@@ -81,7 +81,7 @@ int16_t gen_next(freq_gen_t *gen)
     return ret;
 }
 
-static int const amplitude = 720;
+static int const amplitude = 72;
 static int const note_freq = 440;
 static int const sample_period = (48000/440); // 109
 
@@ -92,12 +92,12 @@ static freq_gen_t gen_real = {
     .ticks = 0,
 };
 
+static int const abuf_len = 8192;
+static uint16_t abuf[abuf_len];
+
 void audio_callback(void *userdata, Uint8* stream, int len)
 {
     freq_gen_t *gen = &gen_real;
-
-    int const abuf_len = 8192;
-    static uint16_t abuf[8192];
 
     // Silence the base stream.
     SDL_memset(stream, 0, len);
@@ -114,7 +114,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     memcpy(stream, abuf, len);
 }
 
-void adjust_volume(char key)
+void adjust_volume(freq_gen_t *gen, char key)
 {
     int amplitude = gen_real.amplitude;
     switch (key) {
@@ -138,7 +138,7 @@ void adjust_volume(char key)
     printf("Amplitude changed to %d\n", amplitude);
 }
 
-void adjust_freq(char key)
+void adjust_freq(freq_gen_t *gen, char key)
 {
     int freq = gen_real.note_hz;
     switch (key) {
@@ -161,7 +161,7 @@ void adjust_freq(char key)
     printf("Frequence changed to %d\n", freq);
 }
 
-void adjust_duty()
+void adjust_duty(freq_gen_t *gen)
 {
     int duty = gen_real.duty;
     duty += 1;
@@ -172,7 +172,83 @@ void adjust_duty()
     printf("Duty adjusted to %d\n", duty);
 }
 
-int const width = 160;
+void draw_audio(SDL_Texture *texture, uint16_t *buf, int len)
+{
+    if (len > 1024) {
+        len = 1024;
+    }
+    SDL_Color background = {
+        .r = 0x55,
+        .g = 0x55,
+        .b = 0x55,
+        .a = 0xff,
+    };
+
+    int width, height;
+    SDL_QueryTexture(texture, NULL, NULL, &width, &height);
+    uint8_t *pixels = NULL;
+    int pitch;
+    int const bpp = 4;
+
+    if (SDL_LockTexture(texture, NULL, (void **)&pixels, &pitch)) {
+        logSDLError(stderr, "Lock texture...");
+        return;
+    }
+
+    if (pitch != width * bpp) {
+        fprintf(stderr, "Unexpected pitch %d\n", pitch);
+        SDL_UnlockTexture(texture);
+        return;
+    }
+
+    // Set to single color
+    for (int h = 0; h < height; ++h) {
+        for (int w = 0; w < width; ++w) {
+            int idx = (h * pitch) + (w * bpp);
+            SDL_Color *dest = (SDL_Color *)&pixels[idx];
+            *dest = background;
+        }
+    }
+
+    // Find min and max amplitude in the sample
+    int16_t max = 0, min = 0;
+    for (int i = 0; i < len; ++i) {
+        int16_t sample = buf[i];
+        if (sample > max) max = sample;
+        if (sample < min) min = sample;
+    }
+
+    // set center line based on the ratio of min/max
+    // (abs(min) + max) / height is the ratio of position
+    int range = max + (-min);
+
+    SDL_Color solid = {
+        .r = 0x10,
+        .g = 0x10,
+        .b = 0x10,
+        .a = 0xff,
+    };
+    int center = height / 2;
+    for (int w = 0; w < len; ++w) {
+        int idx = (center * pitch) + (w * bpp);
+        SDL_Color *dest = (SDL_Color *)&pixels[idx];
+        *dest = solid;
+
+        if (!range) {
+            continue;
+        }
+        int16_t sample = buf[w];
+        float s = (float)sample / range;
+        int h = (s * (center-2)) + center;
+        idx = (h * pitch) + (w * bpp);
+        dest = (SDL_Color *)&pixels[idx];
+        *dest = solid;
+    }
+
+    SDL_UnlockTexture(texture);
+}
+
+int const width = 1024;
 int const height = 144;
 
 int main(int argc, char* argv[])
@@ -211,6 +287,8 @@ int main(int argc, char* argv[])
         return 3;
     }
 
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+
     // AUDIO setup
     SDL_AudioSpec desired = {
         .freq = freq,
@@ -223,6 +301,8 @@ int main(int argc, char* argv[])
         .userdata = NULL,
     };
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+
+    Uint32 last = SDL_GetTicks();
 
     SDL_Event event;
     while (true) {
@@ -241,11 +321,11 @@ int main(int argc, char* argv[])
                 } else if (key == 's') {
                     SDL_PauseAudioDevice(dev, 1);
                 } else if (key == 'u' || key == 'd') {
-                    adjust_volume(key);
+                    adjust_volume(&gen_real, key);
                 } else if (key == 'l' || key == 'r') {
-                    adjust_freq(key);
+                    adjust_freq(&gen_real, key);
                 } else if (key == 'w') {
-                    adjust_duty();
+                    adjust_duty(&gen_real);
                 }
             }
         }
@@ -258,8 +338,16 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
         SDL_RenderClear(renderer);
 
+        draw_audio(texture, abuf, abuf_len);
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
+
         // Present
         SDL_RenderPresent(renderer);
+
+        Uint32 cur = SDL_GetTicks();
+        if (cur - last < 16) {
+            SDL_Delay(cur-last);
+        }
     }
 shutdown_all:
     SDL_CloseAudioDevice(dev);
