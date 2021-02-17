@@ -1,6 +1,7 @@
 #ifndef FREQ_GEN_H
 #define FREQ_GEN_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 
@@ -13,7 +14,7 @@ typedef enum {
 
 typedef struct freq_gen_s {
     int amplitude;
-    int note_hz;
+    int frequency;
     duty_cycle_t duty;
     int ticks;
 } freq_gen_t;
@@ -21,5 +22,10 @@ typedef struct freq_gen_s {
 void freq_gen_init(freq_gen_t *gen, int amplitude, int frequency, duty_cycle_t duty);
 
 int16_t freq_gen_next(freq_gen_t *gen, int sample_freq);
+/// Adjust amplitude or frequency up or down.
+void freq_gen_adjust_amplitude(freq_gen_t *gen, int amp_chg);
+void freq_gen_adjust_frequency(freq_gen_t *gen, int freq_chg);
+/// Cycle to the next duty cycle.
+void freq_gen_cycle_duty(freq_gen_t *gen);
 
 #endif

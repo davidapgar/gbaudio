@@ -75,60 +75,43 @@ void audio_callback(void *userdata, Uint8* stream, int len)
 
 void adjust_volume(freq_gen_t *gen, char key)
 {
-    int amplitude = gen_real.amplitude;
+    int amplitude;
     switch (key) {
     case 'u':
-        amplitude += 16;
-        if (amplitude > 32768) {
-            amplitude = 32768;
-        }
+        amplitude = 16;
         break;
     case 'd':
-        amplitude -= 16;
-        if (amplitude < 0) {
-            amplitude = 0;
-        }
+        amplitude = -16;
         break;
 
     default:
         return;
     }
-    gen_real.amplitude = amplitude;
-    printf("Amplitude changed to %d\n", amplitude);
+    freq_gen_adjust_amplitude(gen, amplitude);
+    printf("Amplitude changed to %d\n", gen->amplitude);
 }
 
 void adjust_freq(freq_gen_t *gen, char key)
 {
-    int freq = gen_real.note_hz;
+    int freq;
     switch (key) {
     case 'l':
-        freq = freq - 10;
-        if (freq < 220) {
-            freq = 220;
-        }
+        freq = -10;
         break;
     case 'r':
-        freq = freq + 10;
-        if (freq > 880) {
-            freq = 880;
-        }
+        freq = 10;
         break;
     default:
         return;
     }
-    gen_real.note_hz = freq;
-    printf("Frequence changed to %d\n", freq);
+    freq_gen_adjust_frequency(gen, freq);
+    printf("Frequence changed to %d\n", gen->frequency);
 }
 
 void adjust_duty(freq_gen_t *gen)
 {
-    int duty = gen_real.duty;
-    duty += 1;
-    if (duty > 3) {
-        duty = 0;
-    }
-    gen_real.duty = duty;
-    printf("Duty adjusted to %d\n", duty);
+    freq_gen_cycle_duty(gen);
+    printf("Duty adjusted to %d\n", gen->duty);
 }
 
 void draw_audio(SDL_Texture *texture, uint16_t *buf, int len)
@@ -212,8 +195,8 @@ int const height = 144;
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2) {
-        printf("Usage: %s <anything>\n", argv[0]);
+    if (argc < 1) {
+        printf("Usage: %s\n", argv[0]);
         return 1;
     }
     printf("Hello World\n");
