@@ -18,6 +18,7 @@ exit
 #include <SDL2/SDL_audio.h>
 
 #include <gbaudio/freq_gen.h>
+#include <gbaudio/lfsr_gen.h>
 
 
 void logSDLError(FILE* fileno, const char *message)
@@ -39,78 +40,11 @@ char downkey(SDL_Event *event)
 
 static int const freq = 44100;
 
-// 15-bit lfsr generator
-// XOR bits 0, 1, placed in bit 15.
-// Also placed in bit 6 after shift if width is true.
-typedef struct lfsr_gen_s {
-    int amplitude;
-    uint16_t reg;
-    bool width;
-
-    int tick;
-    int update_period;
-    bool last;
-} lfsr_gen_t;
-
-int16_t lfsr_gen_next(lfsr_gen_t *gen)
-{
-    // Handle non-initialized case
-    if (gen->reg == 0) {
-        gen->reg = 1;
-    }
-
-    int16_t ret;
-    // Inverted
-    if (gen->last) {
-        ret = -gen->amplitude;
-    } else {
-        ret = gen->amplitude;
-    }
-
-    gen->tick += 1;
-    if (gen->tick >= gen->update_period) {
-        gen->tick -= gen->update_period;
-    }
-
-    if (gen->tick == 0) {
-        uint16_t reg = gen->reg;
-
-        // Get the feedback bit
-        uint16_t bit0 = reg & 0x01;
-        uint16_t bit1 = (reg >> 1) & 0x01;
-        uint16_t feedback = bit0 ^ bit1;
-
-        reg = reg >> 1;
-        reg = reg | (feedback << 14); // Set 15th bit (bit 14)
-        if (gen->width) {
-            reg = reg | (feedback << 6); // Set bit 6
-        }
-
-        gen->reg = reg;
-        gen->last = bit0;
-    }
-
-    return ret;
-}
-
 static int const amplitude = 72;
 static int const note_freq = 440;
 
-static freq_gen_t gen_real = {
-    .amplitude = amplitude,
-    .note_hz = note_freq,
-    .duty = duty_50,
-    .ticks = 0,
-};
-
-static lfsr_gen_t lfsr_real = {
-    .amplitude = amplitude,
-    .reg = 0x01,
-    .width = false,
-    .tick = 0,
-    .update_period = 8,
-    .last = false,
-};
+static freq_gen_t gen_real;
+static lfsr_gen_t lfsr_real;
 
 static int const abuf_len = 8192;
 static uint16_t abuf[abuf_len];
@@ -130,7 +64,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
         if (true) {
             abuf[i] = freq_gen_next(gen, freq);
         } else {
-            abuf[i] = lfsr_gen_next(lfsr);
+            abuf[i] = lfsr_gen_next(lfsr, freq);
         }
     }
 
@@ -326,6 +260,9 @@ int main(int argc, char* argv[])
         .userdata = NULL,
     };
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+
+    freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
+    lfsr_gen_init(&lfsr_real, amplitude, false, 8);
 
     Uint32 last = SDL_GetTicks();
 

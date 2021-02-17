@@ -1,3 +1,6 @@
+#ifndef FREQ_GEN_H
+#define FREQ_GEN_H
+
 #include <stdint.h>
 
 
@@ -18,3 +21,5 @@ typedef struct freq_gen_s {
 void freq_gen_init(freq_gen_t *gen, int amplitude, int frequency, duty_cycle_t duty);
 
 int16_t freq_gen_next(freq_gen_t *gen, int sample_freq);
+
+#endif
