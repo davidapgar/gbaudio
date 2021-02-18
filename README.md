@@ -7,6 +7,8 @@ This is a simple SDL audio example for generated frequencies. Built while workin
 
 Requires SDL2 and SDL2_ttf. Has only been tested on mac os, but likely should build on linux/windows.
 
+The binary `gbaudio_demo` is built in `build/output/bin`. Requires a font to run as the first argument. The excellent open VT323 font is included in the repo.
+
 ## References
 
 (Random references related to the gameboy APU)
