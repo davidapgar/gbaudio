@@ -282,8 +282,11 @@ int main(int argc, char* argv[])
                         adjust_freq_gen(&gen_real, key);
                     } else if (audio_gen == &lfsr_audio) {
                         adjust_lfsr_gen(&lfsr_real, key);
-                    } else {
+                    } else if (audio_gen == &sweep_audio) {
                         adjust_audio_gen(audio_gen, key);
+                        if (key == 'w') {
+                            sweep_gen.change = !sweep_gen.change;
+                        }
                     }
                     break;
                 case 'p':
