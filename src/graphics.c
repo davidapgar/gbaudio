@@ -1,6 +1,7 @@
 #include <gbaudio/graphics.h>
 
 #include <stdio.h>
+#include <string.h>
 
 
 void logSDLError(FILE* fileno, const char *message)
@@ -82,4 +83,85 @@ void draw_audio(SDL_Texture *texture, uint16_t *buf, int len)
     }
 
     SDL_UnlockTexture(texture);
+}
+
+void view_init(view_t *view, int width, int height)
+{
+    SDL_Rect frame = {
+        .x = 0,
+        .y = 0,
+        .w = width,
+        .h = height,
+    };
+    view->frame = frame;
+}
+
+void lineview_init(lineview_t *lineview, int width, int height)
+{
+    view_init(&lineview->view, width, height);
+    line_init(&lineview->line);
+}
+
+void line_init(line_t *line)
+{
+    memset(line, 0, sizeof(*line));
+}
+
+void line_update(line_t *line, char *str)
+{
+    strlcpy(line->str, str, linelen);
+    line->dirty = true;
+}
+
+#define MIN(x, y) x < y ? x : y
+
+int line_display(line_t *line, SDL_Renderer *renderer, TTF_Font* font, SDL_Color color, SDL_Rect const *rect)
+{
+    int w, h;
+
+    if (line->texture == NULL && line->dirty == false) {
+        return 0;
+    }
+
+    if (line->dirty) {
+        line->dirty = false;
+
+        if (line->texture) {
+            SDL_DestroyTexture(line->texture);
+            line->texture = NULL;
+        }
+
+        SDL_Surface *display_str = TTF_RenderText_Solid(
+            font,
+            line->str,
+            color);
+        if (!display_str) {
+            fprintf(stderr, "display str %s\n", TTF_GetError());
+            return 0;
+        }
+        line->texture = SDL_CreateTextureFromSurface(
+            renderer,
+            display_str);
+        SDL_FreeSurface(display_str);
+    }
+
+    SDL_QueryTexture(line->texture, NULL, NULL, &w, &h);
+    SDL_Rect dest = {
+        .x = rect->x,
+        .y = rect->y,
+        .w = MIN(w, rect->w),
+        .h = MIN(h, rect->h),
+    };
+    SDL_RenderCopy(renderer, line->texture, NULL, &dest);
+    return MIN(h, rect->h);
+}
+
+int lineview_display(lineview_t *lineview, SDL_Renderer *renderer, TTF_Font *font, SDL_Color color)
+{
+    return line_display(
+        &lineview->line,
+        renderer,
+        font,
+        color,
+        &lineview->view.frame);
 }

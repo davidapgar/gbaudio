@@ -23,6 +23,9 @@ exit
 #include <gbaudio/lfsr_gen.h>
 
 
+/// Bottom of window display/log line.
+static lineview_t lineview;
+
 /// Returns not zero if there was a key pressed in the alphabet.
 char downkey(SDL_Event *event)
 {
@@ -91,20 +94,21 @@ void adjust_freq_gen(freq_gen_t *gen, char key)
     default:
         return;
     }
-    printf("Frequence Gen adjust: Freq %d Amp %d Duty %d\n",
+    char buf[128];
+    snprintf(buf, 128, "Frequence Gen adjust: Freq %d Amp %d Duty %d\n",
         gen->frequency, gen->amplitude, gen->duty);
+    line_update(&lineview.line, buf);
 }
 
 int const width = 1024;
-int const height = 144;
+int const height = 144 + 16;
 
 int main(int argc, char* argv[])
 {
-    if (argc < 1) {
-        printf("Usage: %s\n", argv[0]);
+    if (argc < 2) {
+        printf("Usage: %s <font>\n", argv[0]);
         return 1;
     }
-    printf("Hello World\n");
 
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         fprintf(stderr, "SDL_Init");
@@ -134,7 +138,33 @@ int main(int argc, char* argv[])
         return 3;
     }
 
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    if (TTF_Init() == -1) {
+        fprintf(stderr, "TTF_Init: %s\n", TTF_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+    }
+
+    TTF_Font *font = TTF_OpenFont(argv[1], 16);
+    if (!font) {
+        fprintf(stderr, "TTF_OpenFont %s\n", TTF_GetError());
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+    }
+
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, 144);
+    SDL_Rect texture_rect = { .x = 0, .y = 0, .w = width, .h = 144 };
+
+    SDL_Color textcolor = {
+        .r = 0x20,
+        .g = 0x60,
+        .b = 0x20,
+        .a = 0xff,
+    };
+    lineview_init(&lineview, width, 16);
+    lineview.view.frame.x = 0;
+    lineview.view.frame.y = 144;
 
     // AUDIO setup
     SDL_AudioSpec desired = {
@@ -163,7 +193,6 @@ int main(int argc, char* argv[])
             }
             char key = downkey(&event);
             if (key != '\0') {
-                printf("Key pressed: %c\n", key);
                 switch (key) {
                 case 'q':
                     quit = true;
@@ -194,7 +223,8 @@ int main(int argc, char* argv[])
         SDL_RenderClear(renderer);
 
         draw_audio(texture, abuf, abuf_len);
-        SDL_RenderCopy(renderer, texture, NULL, NULL);
+        SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
+        lineview_display(&lineview, renderer, font, textcolor);
 
         // Present
         SDL_RenderPresent(renderer);
