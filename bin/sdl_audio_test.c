@@ -21,6 +21,7 @@ exit
 #include <gbaudio/freq_gen.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
+#include <gbaudio/sweep_gen.h>
 
 
 /// Bottom of window display/log line.
@@ -197,6 +198,10 @@ int main(int argc, char* argv[])
     lfsr_gen_init(&lfsr_real, amplitude, false, 8);
     audio_gen_t lfsr_audio = lfsr_to_audio_gen(&lfsr_real);
 
+    sweep_gen_t sweep_gen;
+    sweep_gen_init(&sweep_gen, &freq_audio, true, 7, 7, 4);
+    audio_gen_t sweep_audio = sweep_to_audio_gen(&sweep_gen);
+
     audio_gen_t *audio_gen = &freq_audio;
 
     // AUDIO setup
@@ -237,6 +242,9 @@ int main(int argc, char* argv[])
                     if (audio_gen == &freq_audio) {
                         audio_gen = &lfsr_audio;
                     } else if (audio_gen == &lfsr_audio) {
+                        audio_gen = &sweep_audio;
+                        sweep_gen_reset(&sweep_gen);
+                    } else if (audio_gen == &sweep_audio) {
                         audio_gen = &freq_audio;
                     }
                     break;
