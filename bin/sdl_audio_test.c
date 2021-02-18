@@ -16,6 +16,7 @@ exit
 #include <stdbool.h>
 #include <SDL.h>
 #include <SDL_audio.h>
+#include <SDL_ttf.h>
 
 #include <gbaudio/freq_gen.h>
 #include <gbaudio/graphics.h>

@@ -10,9 +10,9 @@ TEST_DIR=tests
 INC_PATH=$(PWD)/inc
 AR=ar
 CC=gcc
-SDL_CFLAGS=`sdl2-config --cflags`
+SDL_CFLAGS=$(shell sdl2-config --cflags)
 CFLAGS=-std=c11 -g -Wall -Werror -I$(INC_PATH) -I. $(SDL_CFLAGS)
-LFLAGS=-lSDL2
+LFLAGS=-lSDL2 -lSDL2_ttf
 
 # Library
 
