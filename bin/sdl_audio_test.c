@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
     audio_gen_t lfsr_audio = lfsr_to_audio_gen(&lfsr_real);
 
     sweep_gen_t sweep_gen;
-    sweep_gen_init(&sweep_gen, &freq_audio, true, 7, 7, 4);
+    sweep_gen_init(&sweep_gen, &freq_audio, true, 2, 7, 4);
     audio_gen_t sweep_audio = sweep_to_audio_gen(&sweep_gen);
 
     audio_gen_t *audio_gen = &freq_audio;
@@ -258,6 +258,9 @@ int main(int argc, char* argv[])
                     } else if (audio_gen == &lfsr_audio) {
                         adjust_lfsr_gen(&lfsr_real, key);
                     }
+                    break;
+                case 'p':
+                    sweep_gen_reset(&sweep_gen);
                     break;
                 }
             }

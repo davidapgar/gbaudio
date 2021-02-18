@@ -46,6 +46,7 @@ int16_t sweep_gen_next(sweep_gen_t *sweep_gen, int frequency)
     // Total time of the sweep
     int total_time = sweep_period * sweep_gen->n_sweep;
 
+    int16_t ret;
     if (tick < total_time) {
         if (tick % sweep_period == 0) {
             // Adjust the frequency.
@@ -55,9 +56,11 @@ int16_t sweep_gen_next(sweep_gen_t *sweep_gen, int frequency)
             change = sweep_gen->change ? change : -change;
             audio_gen_adjust_frequency(sweep_gen->audio_gen, change);
         }
+        ret = audio_gen_next(sweep_gen->audio_gen, frequency);
+    } else {
+        ret = 0;
     }
 
-    int16_t ret = audio_gen_next(sweep_gen->audio_gen, frequency);
     sweep_gen->tick = tick;
     return ret;
 }
