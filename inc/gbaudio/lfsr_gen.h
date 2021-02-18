@@ -20,4 +20,8 @@ typedef struct lfsr_gen_s {
 void lfsr_gen_init(lfsr_gen_t *lfsr, int amplitude, bool width, int update_period);
 int16_t lfsr_gen_next(lfsr_gen_t *lfsr, int frequency);
 
+void lfsr_gen_adjust_amplitude(lfsr_gen_t *lfsr, int amp);
+void lfsr_gen_adjust_period(lfsr_gen_t *lfsr, int per);
+void lfsr_gen_cycle_width(lfsr_gen_t *lfsr);
+
 #endif

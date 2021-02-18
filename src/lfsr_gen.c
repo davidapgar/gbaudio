@@ -52,3 +52,31 @@ int16_t lfsr_gen_next(lfsr_gen_t *lfsr, int frequency)
 
     return ret;
 }
+
+void lfsr_gen_adjust_amplitude(lfsr_gen_t *lfsr, int amp)
+{
+    int amplitude = lfsr->amplitude + amp;
+    if (amplitude > 32768) {
+        amplitude = 32768;
+    } else if (amplitude < 0) {
+        amplitude = 0;
+    }
+    lfsr->amplitude = amplitude;
+}
+
+void lfsr_gen_adjust_period(lfsr_gen_t *lfsr, int per)
+{
+    int period = lfsr->update_period + per;
+    if (period > 32) {
+        period = 32;
+    } else if (period < 0) {
+        period = 0;
+    }
+    lfsr->update_period = period;
+}
+
+void lfsr_gen_cycle_width(lfsr_gen_t *lfsr)
+{
+    bool width = !lfsr->width;
+    lfsr->width = width;
+}

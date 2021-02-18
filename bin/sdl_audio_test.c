@@ -45,6 +45,7 @@ static int const note_freq = 440;
 
 static freq_gen_t gen_real;
 static lfsr_gen_t lfsr_real;
+static bool freq_gen_active = true;
 
 static int const abuf_len = 8192;
 static uint16_t abuf[abuf_len];
@@ -61,7 +62,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     }
 
     for (int i = 0; i < len/2; ++i) {
-        if (true) {
+        if (freq_gen_active) {
             abuf[i] = freq_gen_next(gen, freq);
         } else {
             abuf[i] = lfsr_gen_next(lfsr, freq);
@@ -97,6 +98,34 @@ void adjust_freq_gen(freq_gen_t *gen, char key)
     char buf[128];
     snprintf(buf, 128, "Frequence Gen adjust: Freq %d Amp %d Duty %d\n",
         gen->frequency, gen->amplitude, gen->duty);
+    line_update(&lineview.line, buf);
+}
+
+void adjust_lfsr_gen(lfsr_gen_t *lfsr, char key)
+{
+    switch (key) {
+    case 'u':
+        lfsr_gen_adjust_amplitude(lfsr, 16);
+        break;
+    case 'd':
+        lfsr_gen_adjust_amplitude(lfsr, -16);
+        break;
+    case 'l':
+        lfsr_gen_adjust_period(lfsr, -1);
+        break;
+    case 'r':
+        lfsr_gen_adjust_period(lfsr, 1);
+        break;
+    case 'w':
+        lfsr_gen_cycle_width(lfsr);
+        break;
+    default:
+        return;
+    }
+
+    char buf[128];
+    snprintf(buf, 128, "LFSR Gen adjust: Amp %d Period %d width %d\n",
+        lfsr->amplitude, lfsr->update_period, lfsr->width);
     line_update(&lineview.line, buf);
 }
 
@@ -204,12 +233,19 @@ int main(int argc, char* argv[])
                 case 's':
                     SDL_PauseAudioDevice(dev, 1);
                     break;
+                case 'a':
+                    freq_gen_active = !freq_gen_active;
+                    break;
                 case 'u':
                 case 'd':
                 case 'l':
                 case 'r':
                 case 'w':
-                    adjust_freq_gen(&gen_real, key);
+                    if (freq_gen_active) {
+                        adjust_freq_gen(&gen_real, key);
+                    } else {
+                        adjust_lfsr_gen(&lfsr_real, key);
+                    }
                     break;
                 }
             }
