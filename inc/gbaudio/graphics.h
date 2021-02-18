@@ -26,8 +26,16 @@ typedef struct lineview_s {
     view_t view;
 } lineview_t;
 
+typedef struct audioview_s {
+    SDL_Texture *texture;
+    view_t view;
+} audioview_t;
+
 void logSDLError(FILE* fileno, const char *message);
+
 void draw_audio(SDL_Texture *texture, uint16_t *buf, int len);
+void audioview_init(audioview_t *audioview, SDL_Renderer *renderer, int width, int height);
+void audioview_display(audioview_t *audioview, SDL_Renderer *renderer);
 
 void view_init(view_t *view, int width, int height);
 void lineview_init(lineview_t *lineview, int width, int height);

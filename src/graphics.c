@@ -85,6 +85,18 @@ void draw_audio(SDL_Texture *texture, uint16_t *buf, int len)
     SDL_UnlockTexture(texture);
 }
 
+void audioview_init(audioview_t *audioview, SDL_Renderer *renderer, int width, int height)
+{
+    view_init(&audioview->view, width, height);
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, height);
+    audioview->texture = texture;
+}
+
+void audioview_display(audioview_t *audioview, SDL_Renderer *renderer)
+{
+    SDL_RenderCopy(renderer, audioview->texture, NULL, &audioview->view.frame);
+}
+
 void view_init(view_t *view, int width, int height)
 {
     SDL_Rect frame = {

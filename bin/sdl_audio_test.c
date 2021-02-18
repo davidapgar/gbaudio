@@ -153,8 +153,9 @@ int main(int argc, char* argv[])
         SDL_Quit();
     }
 
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, width, 144);
-    SDL_Rect texture_rect = { .x = 0, .y = 0, .w = width, .h = 144 };
+    audioview_t audioview_real;
+    audioview_t *audioview = &audioview_real;
+    audioview_init(audioview, renderer, width, 144);
 
     SDL_Color textcolor = {
         .r = 0x20,
@@ -222,8 +223,8 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
         SDL_RenderClear(renderer);
 
-        draw_audio(texture, abuf, abuf_len);
-        SDL_RenderCopy(renderer, texture, NULL, &texture_rect);
+        draw_audio(audioview->texture, abuf, abuf_len);
+        audioview_display(audioview, renderer);
         lineview_display(&lineview, renderer, font, textcolor);
 
         // Present
