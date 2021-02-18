@@ -125,6 +125,31 @@ void adjust_lfsr_gen(lfsr_gen_t *lfsr, char key)
     line_update(&lineview.line, buf);
 }
 
+void adjust_audio_gen(audio_gen_t *audio_gen, char key)
+{
+    switch (key) {
+    case 'u':
+        audio_gen_adjust_amplitude(audio_gen, 16);
+        break;
+    case 'd':
+        audio_gen_adjust_amplitude(audio_gen, -16);
+        break;
+    case 'l':
+        audio_gen_adjust_frequency(audio_gen, -10);
+        break;
+    case 'r':
+        audio_gen_adjust_frequency(audio_gen, 10);
+        break;
+    default:
+        return;
+    }
+    char buf[128];
+    snprintf(buf, 128, "Audio Gen adjust: Freq %d Amp %d \n",
+        audio_gen_get_frequency(audio_gen),
+        audio_gen_get_amplitude(audio_gen));
+    line_update(&lineview.line, buf);
+}
+
 int const width = 1024;
 int const height = 144 + 16;
 
@@ -257,6 +282,8 @@ int main(int argc, char* argv[])
                         adjust_freq_gen(&gen_real, key);
                     } else if (audio_gen == &lfsr_audio) {
                         adjust_lfsr_gen(&lfsr_real, key);
+                    } else {
+                        adjust_audio_gen(audio_gen, key);
                     }
                     break;
                 case 'p':

@@ -8,13 +8,13 @@
 
 
 /// Frequency sweep for an audio generator.
+/// get/adjust frequency and amplitude are passthroughs
+/// to the underlying audio generator.
 typedef struct sweep_gen_s {
     audio_gen_t *audio_gen;
-    /// Passthrough to underlying generator (maybe)
-    int amplitude;
     /// Positive or negative frequency change
     bool change;
-    /// Frequency of updates (default 128Hz)
+    /// Frequency of updates (128Hz, not changable through API)
     int frequency;
     /// How many periods per update, 0-7
     int time;

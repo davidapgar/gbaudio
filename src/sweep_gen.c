@@ -83,6 +83,18 @@ static int audio_sweep_get_amplitude(void *generator)
     return audio_gen_get_amplitude(sweep_gen->audio_gen);
 }
 
+static void audio_sweep_adjust_frequency(void *generator, int freq)
+{
+    sweep_gen_t *sweep_gen = (sweep_gen_t *)generator;
+    audio_gen_adjust_frequency(sweep_gen->audio_gen, freq);
+}
+
+static int audio_sweep_get_frequency(void *generator)
+{
+    sweep_gen_t *sweep_gen = (sweep_gen_t *)generator;
+    return audio_gen_get_frequency(sweep_gen->audio_gen);
+}
+
 audio_gen_t sweep_to_audio_gen(sweep_gen_t *sweep_gen)
 {
     audio_gen_t ret = {
@@ -90,8 +102,8 @@ audio_gen_t sweep_to_audio_gen(sweep_gen_t *sweep_gen)
         .next = audio_sweep_gen_next,
         .adjust_amplitude = audio_sweep_adjust_amplitude,
         .get_amplitude = audio_sweep_get_amplitude,
-        .adjust_frequency = NULL,
-        .get_frequency = NULL,
+        .adjust_frequency = audio_sweep_adjust_frequency,
+        .get_frequency = audio_sweep_get_frequency,
     };
     return ret;
 }
