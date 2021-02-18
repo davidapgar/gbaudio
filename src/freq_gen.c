@@ -1,5 +1,7 @@
 #include <gbaudio/freq_gen.h>
 
+#include <stddef.h>
+
 
 void freq_gen_init(freq_gen_t *gen, int amplitude, int frequency, duty_cycle_t duty)
 {
@@ -76,4 +78,47 @@ void freq_gen_cycle_duty(freq_gen_t *gen)
         duty = duty_12;
     }
     gen->duty = duty;
+}
+
+static int16_t audio_freq_gen_next(void *generator, int freq)
+{
+    freq_gen_t *freq_gen = (freq_gen_t *)generator;
+    return freq_gen_next(freq_gen, freq);
+}
+
+static void audio_freq_adjust_amplitude(void *generator, int amp)
+{
+    freq_gen_t *freq_gen = (freq_gen_t *)generator;
+    freq_gen_adjust_amplitude(freq_gen, amp);
+}
+
+static int audio_freq_get_amplitude(void *generator)
+{
+    freq_gen_t *freq_gen = (freq_gen_t *)generator;
+    return freq_gen->amplitude;
+}
+
+static void audio_freq_adjust_frequency(void *generator, int freq)
+{
+    freq_gen_t *freq_gen = (freq_gen_t *)generator;
+    freq_gen_adjust_frequency(freq_gen, freq);
+}
+
+static int audio_freq_get_frequency(void *generator)
+{
+    freq_gen_t *freq_gen = (freq_gen_t *)generator;
+    return freq_gen->frequency;
+}
+
+audio_gen_t freq_to_audio_gen(freq_gen_t *freq_gen)
+{
+    audio_gen_t ret = {
+        .generator = freq_gen,
+        .next = audio_freq_gen_next,
+        .adjust_amplitude = audio_freq_adjust_amplitude,
+        .get_amplitude = audio_freq_get_amplitude,
+        .adjust_frequency = audio_freq_adjust_frequency,
+        .get_frequency = audio_freq_get_frequency,
+    };
+    return ret;
 }

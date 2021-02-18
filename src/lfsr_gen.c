@@ -1,5 +1,7 @@
 #include <gbaudio/lfsr_gen.h>
 
+#include <stddef.h>
+
 
 void lfsr_gen_init(lfsr_gen_t *lfsr, int amplitude, bool width, int update_period)
 {
@@ -79,4 +81,35 @@ void lfsr_gen_cycle_width(lfsr_gen_t *lfsr)
 {
     bool width = !lfsr->width;
     lfsr->width = width;
+}
+
+static int16_t audio_lfsr_gen_next(void *generator, int freq)
+{
+    lfsr_gen_t *lfsr = (lfsr_gen_t *)generator;
+    return lfsr_gen_next(lfsr, freq);
+}
+
+static void audio_lfsr_adjust_amplitude(void *generator, int amp)
+{
+    lfsr_gen_t *lfsr_gen = (lfsr_gen_t *)generator;
+    lfsr_gen_adjust_amplitude(lfsr_gen, amp);
+}
+
+static int audio_lfsr_get_amplitude(void *generator)
+{
+    lfsr_gen_t *lfsr_gen = (lfsr_gen_t *)generator;
+    return lfsr_gen->amplitude;
+}
+
+audio_gen_t lfsr_to_audio_gen(lfsr_gen_t *lfsr)
+{
+    audio_gen_t ret = {
+        .generator = lfsr,
+        .next = audio_lfsr_gen_next,
+        .adjust_amplitude = audio_lfsr_adjust_amplitude,
+        .get_amplitude = audio_lfsr_get_amplitude,
+        .adjust_frequency = NULL,
+        .get_frequency = NULL,
+    };
+    return ret;
 }

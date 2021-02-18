@@ -38,22 +38,21 @@ char downkey(SDL_Event *event)
     return '\0';
 }
 
-static int const freq = 44100;
+static int const frequency = 44100;
 
 static int const amplitude = 72;
 static int const note_freq = 440;
 
 static freq_gen_t gen_real;
 static lfsr_gen_t lfsr_real;
-static bool freq_gen_active = true;
 
 static int const abuf_len = 8192;
 static uint16_t abuf[abuf_len];
 
 void audio_callback(void *userdata, Uint8* stream, int len)
 {
-    freq_gen_t *gen = &gen_real;
-    lfsr_gen_t *lfsr = &lfsr_real;
+    audio_gen_t **audio_gen_ref = (audio_gen_t **)userdata;
+    audio_gen_t *audio_gen = *audio_gen_ref;
 
     // Silence the base stream.
     SDL_memset(stream, 0, len);
@@ -62,11 +61,7 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     }
 
     for (int i = 0; i < len/2; ++i) {
-        if (freq_gen_active) {
-            abuf[i] = freq_gen_next(gen, freq);
-        } else {
-            abuf[i] = lfsr_gen_next(lfsr, freq);
-        }
+        abuf[i] = audio_gen_next(audio_gen, frequency);
     }
 
     //SDL_MixAudioFormat(stream, abuf, AUDIO_S8, len, SDL_MIX_MAXVOLUME / 4);
@@ -196,21 +191,26 @@ int main(int argc, char* argv[])
     lineview.view.frame.x = 0;
     lineview.view.frame.y = 144;
 
+
+    freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
+    audio_gen_t freq_audio = freq_to_audio_gen(&gen_real);
+    lfsr_gen_init(&lfsr_real, amplitude, false, 8);
+    audio_gen_t lfsr_audio = lfsr_to_audio_gen(&lfsr_real);
+
+    audio_gen_t *audio_gen = &freq_audio;
+
     // AUDIO setup
     SDL_AudioSpec desired = {
-        .freq = freq,
+        .freq = frequency,
         .format = AUDIO_U16SYS,
         .channels = 1,
         .silence = 0,
         .samples = 4096,
         .size = 0,
         .callback = audio_callback,
-        .userdata = NULL,
+        .userdata = &audio_gen,
     };
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
-
-    freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
-    lfsr_gen_init(&lfsr_real, amplitude, false, 8);
 
     Uint32 last = SDL_GetTicks();
 
@@ -234,16 +234,20 @@ int main(int argc, char* argv[])
                     SDL_PauseAudioDevice(dev, 1);
                     break;
                 case 'a':
-                    freq_gen_active = !freq_gen_active;
+                    if (audio_gen == &freq_audio) {
+                        audio_gen = &lfsr_audio;
+                    } else if (audio_gen == &lfsr_audio) {
+                        audio_gen = &freq_audio;
+                    }
                     break;
                 case 'u':
                 case 'd':
                 case 'l':
                 case 'r':
                 case 'w':
-                    if (freq_gen_active) {
+                    if (audio_gen == &freq_audio) {
                         adjust_freq_gen(&gen_real, key);
-                    } else {
+                    } else if (audio_gen == &lfsr_audio) {
                         adjust_lfsr_gen(&lfsr_real, key);
                     }
                     break;

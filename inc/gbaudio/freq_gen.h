@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <gbaudio/audio_gen.h>
+
 
 typedef enum {
     duty_12 = 0,
@@ -27,5 +29,7 @@ void freq_gen_adjust_amplitude(freq_gen_t *gen, int amp_chg);
 void freq_gen_adjust_frequency(freq_gen_t *gen, int freq_chg);
 /// Cycle to the next duty cycle.
 void freq_gen_cycle_duty(freq_gen_t *gen);
+
+audio_gen_t freq_to_audio_gen(freq_gen_t *freq_gen);
 
 #endif
