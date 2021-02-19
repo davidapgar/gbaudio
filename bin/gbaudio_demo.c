@@ -237,7 +237,7 @@ int main(int argc, char* argv[])
     (void)carrier_a;
 
     freq_gen_t modulator;
-    freq_gen_init(&modulator, amplitude, 80, duty_50);
+    freq_gen_init(&modulator, amplitude, 20, duty_50);
     audio_gen_t modulator_a = freq_to_audio_gen(&modulator);
     (void)modulator_a;
 
@@ -245,11 +245,15 @@ int main(int argc, char* argv[])
     saw_gen_init(&saw, amplitude, note_freq);
     audio_gen_t saw_audio = saw_to_audio_gen(&saw);
 
+    saw_gen_t saw2;
+    saw_gen_init(&saw2, amplitude, 20);
+    audio_gen_t saw_audio2 = saw_to_audio_gen(&saw2);
+
     audio_gen = &saw_audio;
 
     freq_mod_t freq_mod;
     //freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
-    freq_mod_init(&freq_mod, &saw_audio, &modulator_a);
+    freq_mod_init(&freq_mod, &saw_audio, &saw_audio2);
     audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
 
     audio_gen = &freq_mod_audio;
@@ -333,7 +337,9 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
         SDL_RenderClear(renderer);
 
+        SDL_LockAudioDevice(dev);
         draw_audio(audioview->texture, abuf, abuf_len);
+        SDL_UnlockAudioDevice(dev);
         audioview_display(audioview, renderer);
         lineview_display(&lineview, renderer, font, textcolor);
 

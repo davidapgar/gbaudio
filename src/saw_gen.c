@@ -61,8 +61,8 @@ void saw_gen_adjust_frequency(saw_gen_t *gen, int freq_chg)
     int freq = gen->frequency + freq_chg;
     if (freq > 880) {
         freq = 880;
-    } else if (freq < 80) {
-        freq = 80;
+    } else if (freq < 20) {
+        freq = 20;
     }
     gen->frequency = freq;
 }
