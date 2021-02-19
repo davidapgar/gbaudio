@@ -22,6 +22,7 @@ exit
 #include <gbaudio/freq_mod.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
+#include <gbaudio/saw_gen.h>
 #include <gbaudio/sweep_gen.h>
 
 
@@ -233,24 +234,23 @@ int main(int argc, char* argv[])
     freq_gen_t carrier;
     freq_gen_init(&carrier, amplitude, note_freq, duty_50);
     audio_gen_t carrier_a = freq_to_audio_gen(&carrier);
+    (void)carrier_a;
 
     freq_gen_t modulator;
     freq_gen_init(&modulator, amplitude, 80, duty_50);
     audio_gen_t modulator_a = freq_to_audio_gen(&modulator);
+    (void)modulator_a;
+
+    saw_gen_t saw;
+    saw_gen_init(&saw, amplitude, note_freq);
+    audio_gen_t saw_audio = saw_to_audio_gen(&saw);
+
+    audio_gen = &saw_audio;
 
     freq_mod_t freq_mod;
-    freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
+    //freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
+    freq_mod_init(&freq_mod, &saw_audio, &modulator_a);
     audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
-
-    printf("Delta (%d):", modulator.amplitude);
-    for (int i = 0; i < 10; ++i) {
-        int delta;
-        do {
-            delta = delta_gen_next(&freq_mod.modulator, frequency);
-        } while (delta == 0);
-        printf( "%d", delta);
-    }
-    printf("\n");
 
     audio_gen = &freq_mod_audio;
 
