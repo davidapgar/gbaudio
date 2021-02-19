@@ -19,6 +19,7 @@ exit
 #include <SDL_ttf.h>
 
 #include <gbaudio/freq_gen.h>
+#include <gbaudio/freq_mod.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
 #include <gbaudio/sweep_gen.h>
@@ -229,6 +230,30 @@ int main(int argc, char* argv[])
 
     audio_gen_t *audio_gen = &freq_audio;
 
+    freq_gen_t carrier;
+    freq_gen_init(&carrier, amplitude, note_freq, duty_50);
+    audio_gen_t carrier_a = freq_to_audio_gen(&carrier);
+
+    freq_gen_t modulator;
+    freq_gen_init(&modulator, amplitude, 80, duty_50);
+    audio_gen_t modulator_a = freq_to_audio_gen(&modulator);
+
+    freq_mod_t freq_mod;
+    freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
+    audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
+
+    printf("Delta (%d):", modulator.amplitude);
+    for (int i = 0; i < 10; ++i) {
+        int delta;
+        do {
+            delta = delta_gen_next(&freq_mod.modulator, frequency);
+        } while (delta == 0);
+        printf( "%d", delta);
+    }
+    printf("\n");
+
+    audio_gen = &freq_mod_audio;
+
     // AUDIO setup
     SDL_AudioSpec desired = {
         .freq = frequency,
@@ -270,6 +295,8 @@ int main(int argc, char* argv[])
                         audio_gen = &sweep_audio;
                         sweep_gen_reset(&sweep_gen);
                     } else if (audio_gen == &sweep_audio) {
+                        audio_gen = &freq_mod_audio;
+                    } else {
                         audio_gen = &freq_audio;
                     }
                     break;
@@ -287,6 +314,8 @@ int main(int argc, char* argv[])
                         if (key == 'w') {
                             sweep_gen.change = !sweep_gen.change;
                         }
+                    } else {
+                        adjust_audio_gen(audio_gen, key);
                     }
                     break;
                 case 'p':

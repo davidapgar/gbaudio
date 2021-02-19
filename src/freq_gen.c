@@ -64,8 +64,8 @@ void freq_gen_adjust_frequency(freq_gen_t *gen, int freq_chg)
     int freq = gen->frequency + freq_chg;
     if (freq > 880) {
         freq = 880;
-    } else if (freq < 220) {
-        freq = 220;
+    } else if (freq < 80) {
+        freq = 80;
     }
     gen->frequency = freq;
 }

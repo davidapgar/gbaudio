@@ -1,6 +1,7 @@
 #ifndef AUDIO_GEN_H
 #define AUDIO_GEN_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct audio_gen_s audio_gen_t;
