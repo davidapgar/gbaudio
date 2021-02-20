@@ -29,6 +29,11 @@ void gbaudio_channel_init(gbaudio_channel_t *channel)
     memset(channel, 0, sizeof(*channel));
 }
 
+void gbaudio_channel_set_amplitude(gbaudio_channel_t *channel, uint16_t amplitude)
+{
+    channel->amplitude = amplitude;
+}
+
 static uint8_t CENTER = 8;
 
 int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate)
@@ -43,7 +48,7 @@ int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate)
         base = 0 - low_sample;
     }
 
-    return (channel->frequency * base) / CENTER;
+    return (channel->amplitude * (base)) / CENTER;
 }
 
 uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
@@ -52,8 +57,74 @@ uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
         // TODO: Should this still tick forward?
         return CENTER;
     }
+
+    int tick = channel->tick;
     // Sweep -> Timer -> Duty -> Envelope -> Mixer
-    return CENTER;
+
+    // Sweep
+
+    // Timer
+
+    // Duty
+    int period = sample_rate / channel->frequency;
+    int tick_period = tick % period;
+    int phase = period / 8;
+
+    bool bit = true;
+
+    switch (channel->duty) {
+    case wave_duty_12:
+        if (tick_period < phase) {
+            bit = false;
+        }
+        break;
+
+    case wave_duty_25:
+        if (tick_period < (phase*2)) {
+            bit = false;
+        }
+        break;
+
+    case wave_duty_50:
+        if (tick_period < (phase*4)) {
+            bit = false;
+        }
+        break;
+
+    case wave_duty_75:
+        if (tick_period < (phase*6)) {
+            bit = false;
+        }
+        break;
+    }
+
+    // Envelope
+    uint8_t envelope = channel->envelope_initial;
+
+    // Mixer - Adjust DC offset
+    uint8_t sample;
+    if (envelope == 0) {
+        sample = CENTER;
+    } else {
+        // e = 1, sample = 1 or 0
+        // sa = 8 or 7
+        // e = 2, sample = 2 or 0
+        // sa = 9 or 7
+        // e = 8, sample = 8 or 0
+        // sa = 12 or
+        // e = 15, sample = 15 or 0
+        // sa = 15 or 0
+        // 15 0x0f -> 0x07, 0x08
+        // high = 8 + 7 (0x0f), low = 8 - 8 (0x0)
+        // 14 0x0e -> 0x07, 0x07
+        // high = 8 + 7 (0x0f), low = 8 - 7 (0x01)
+
+        uint8_t up = (envelope >> 1);
+        uint8_t down = (envelope >> 1) + (envelope & 0x01);
+        sample = bit ? (CENTER + up) : (CENTER - down);
+    }
+    channel->tick = tick + 1;
+    return sample;
 }
 
 void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *samples, int n_samples)
@@ -123,6 +194,10 @@ void gbaudio_channel_freq(gbaudio_channel_t *channel, uint32_t freq)
 
 void gbaudio_channel_trigger(gbaudio_channel_t *channel, bool trigger, bool single)
 {
+    if (trigger) {
+        channel->running = true;
+        channel->tick = 0;
+    }
 }
 
 void gbaudio_channel_trigger_freq_high(gbaudio_channel_t *channel, bool trigger, bool single, uint8_t freq_high)

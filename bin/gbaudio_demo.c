@@ -261,10 +261,15 @@ int main(int argc, char* argv[])
 
     gbaudio_channel_t channel1;
     gbaudio_channel_init(&channel1);
+    gbaudio_channel_freq(&channel1, 440);
+    gbaudio_channel_volume_envelope(&channel1, 0x0f, 0, 0);
+    gbaudio_channel_set_amplitude(&channel1, 80);
+    gbaudio_channel_trigger(&channel1, true, false);
+
     audio_gen_t channel1_a = channel_to_audio_gen(&channel1);
     (void)channel1_a;
 
-    //audio_gen = &channel1_a;
+    audio_gen = &channel1_a;
 
     // AUDIO setup
     SDL_AudioSpec desired = {

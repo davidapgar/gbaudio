@@ -9,10 +9,10 @@
 
 
 typedef enum {
-    wave_duty_12 = 0x00,
-    wave_duty_25 = 0x01,
-    wave_duty_50 = 0x02,
-    wave_duty_75 = 0x03,
+    wave_duty_12 = 0x00, // _-------_-------
+    wave_duty_25 = 0x01, // __------__------
+    wave_duty_50 = 0x02, // ____----____----
+    wave_duty_75 = 0x03, // ______--______--
 } wave_duty_t;
 
 typedef struct gbaudio_channel_s {
@@ -73,7 +73,7 @@ void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *
 void gbaudio_channel_sweep(gbaudio_channel_t *channel, uint8_t time, bool addition, uint8_t n_shift);
 
 /// Set the length and duty pattern
-/// length: 0-63 - length of sound (64-length) / 256
+/// length: 0-63 - length of sound (64-length) / 256 seconds
 /// duty: 12.5%, 25%, 50%, or 75% duty cycle
 void gbaudio_channel_length_duty(gbaudio_channel_t *channel, uint8_t length, wave_duty_t duty);
 
