@@ -20,6 +20,7 @@ exit
 
 #include <gbaudio/freq_gen.h>
 #include <gbaudio/freq_mod.h>
+#include <gbaudio/gbaudio_channel.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
 #include <gbaudio/saw_gen.h>
@@ -257,6 +258,13 @@ int main(int argc, char* argv[])
     audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
 
     audio_gen = &freq_mod_audio;
+
+    gbaudio_channel_t channel1;
+    gbaudio_channel_init(&channel1);
+    audio_gen_t channel1_a = channel_to_audio_gen(&channel1);
+    (void)channel1_a;
+
+    //audio_gen = &channel1_a;
 
     // AUDIO setup
     SDL_AudioSpec desired = {

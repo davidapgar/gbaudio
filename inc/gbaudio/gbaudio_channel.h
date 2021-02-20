@@ -19,6 +19,11 @@ typedef struct gbaudio_channel_s {
     bool running;
     int tick;
 
+    // Running frequency in Hz.
+    uint32_t frequency;
+    // Amplitude to scale output signal.
+    uint16_t amplitude;
+
     // Sweep
     uint8_t sweep_time;
     bool sweep_addition;
@@ -35,7 +40,6 @@ typedef struct gbaudio_channel_s {
 
     // Frequency
     uint16_t gbfreq;
-    uint32_t frequency;
 } gbaudio_channel_t;
 
 /// Convert to/from gameboy frequency
@@ -47,8 +51,17 @@ uint16_t freq_to_gbfreq(uint32_t freq);
 /// Starts out with no frequency, not running.
 void gbaudio_channel_init(gbaudio_channel_t *channel);
 
-/// Return the next sample for `sample_rate` frequency.
+/// Set the amplitude to scale the output.
+/// amplitude: 0-32768
+void gbaudio_channel_set_amplitude(gbaudio_channel_t *channel, uint16_t amplitude);
+
+/// Return the next sample for `sample_rate` frequency scaled by amplitude
 int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate);
+
+/// Return the next sample as 4-bit sample
+/// Returns: 0-15, with a DC offset applied
+/// 8 is "zero"/center value
+uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate);
 
 /// Fill `n_samples` from the audio channel.
 void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *samples, int n_samples);
@@ -93,5 +106,7 @@ void gbaudio_channel_trigger(gbaudio_channel_t *channel, bool trigger, bool sing
 /// Trigger the sound channel, and set the high frequency bits
 /// Modeled after the actual NF14 register.
 void gbaudio_channel_trigger_freq_high(gbaudio_channel_t *channel, bool trigger, bool single, uint8_t freq_high);
+
+audio_gen_t channel_to_audio_gen(gbaudio_channel_t *channel);
 
 #endif

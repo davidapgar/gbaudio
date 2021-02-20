@@ -29,9 +29,31 @@ void gbaudio_channel_init(gbaudio_channel_t *channel)
     memset(channel, 0, sizeof(*channel));
 }
 
+static uint8_t CENTER = 8;
+
 int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate)
 {
-    return 0;
+    uint8_t low_sample = gbaudio_channel_raw_next(channel, sample_rate);
+    int8_t base;
+    if (low_sample == CENTER) {
+        return 0;
+    } else if ((low_sample & 0x08) == 0x08) {
+        base = (low_sample & 0x07);
+    } else {
+        base = 0 - low_sample;
+    }
+
+    return (channel->frequency * base) / CENTER;
+}
+
+uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
+{
+    if (!channel->running) {
+        // TODO: Should this still tick forward?
+        return CENTER;
+    }
+    // Sweep -> Timer -> Duty -> Envelope -> Mixer
+    return CENTER;
 }
 
 void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *samples, int n_samples)
@@ -107,4 +129,35 @@ void gbaudio_channel_trigger_freq_high(gbaudio_channel_t *channel, bool trigger,
 {
     gbaudio_channel_gbfreq_high(channel, freq_high);
     gbaudio_channel_trigger(channel, trigger, single);
+}
+
+static int16_t gen_next(void *generator, int frequency)
+{
+    gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
+    return gbaudio_channel_next(self, frequency);
+}
+
+static void adjust_amp(void *generator, int amp)
+{
+    gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
+    self->amplitude += amp;
+}
+
+static int get_amp(void *generator)
+{
+    gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
+    return self->amplitude;
+}
+
+audio_gen_t channel_to_audio_gen(gbaudio_channel_t *channel)
+{
+    audio_gen_t ret = {
+        .generator = channel,
+        .next = gen_next,
+        .adjust_amplitude = adjust_amp,
+        .get_amplitude = get_amp,
+        .adjust_frequency = NULL,
+        .get_frequency = NULL,
+    };
+    return ret;
 }
