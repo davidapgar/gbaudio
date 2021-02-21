@@ -51,8 +51,7 @@ typedef enum {
 // |Sweep|->|Wave |->|Length|->|Envelope|->|DAC/Mix|
 // | 0-7 |  | 0-4 |  | 0-64 |  |   0-7  |  |       |
 // \-----/  \-----/  \------/  \--------/  \-------/
-//
-//
+
 
 typedef struct gbaudio_channel_s {
     bool running;
