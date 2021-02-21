@@ -15,6 +15,45 @@ typedef enum {
     wave_duty_75 = 0x03, // ______--______--
 } wave_duty_t;
 
+// Base CPU clock is 4,194,304 4194304
+// Frequency is 131072/(2048-x)
+// Base Frequency is CPU clock / 32
+// Clock divider of 32 (2^5)
+// 4194304 / 32 = 131072
+// Timer clocks 8 times per frequency period
+// Thus, frequency/duty clock is 1,048,576 Hz (same as CPU instr cycle)
+// Actual sound generation on GB is at sample rate of 1048576
+
+// Sequence counter is clocked at 512Hz (clock/8192) (2^13)
+// Sweep timer frequency 128Hz
+// Length Counter at 256Hz, counting 63-0
+// Volume Envelope at 64Hz
+
+// Sound channel 1 & 2:
+//                       /------------\
+//                       |Master Clock|
+//                       \------------/
+//                             | div 4
+//              div 2048       V
+// /--------------\ | /-------------------\
+// |Sequence 512Hz |<--|APU clock 1Mhz (/4)|
+// \--------------/   \-------------------/
+//   |        |  |          |
+//   |        |  \-----------------\
+//   V 4      |             |      V
+// /-----\    |  2  /-----\ |   /-----\
+// |Sweep|    \---->| Len | |   | Vol |
+// |128Hz|     /----|256Hz|-/   | 64Hz|
+// \-----/     |    \-----/     \-----/
+//   |         |       |           |
+//   V         V       V           V
+// /-----\F /-----\S /------\S?/--------\S?/-------\
+// |Sweep|->|Wave |->|Length|->|Envelope|->|DAC/Mix|
+// | 0-7 |  | 0-4 |  | 0-64 |  |   0-7  |  |       |
+// \-----/  \-----/  \------/  \--------/  \-------/
+//
+//
+
 typedef struct gbaudio_channel_s {
     bool running;
     int tick;
