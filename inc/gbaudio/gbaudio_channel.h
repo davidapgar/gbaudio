@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include <gbaudio/audio_gen.h>
+#include <gbaudio/gbaudio_clock.h>
 
 
 typedef enum {
@@ -49,7 +50,7 @@ typedef enum {
 //   V         V       V           V
 // /-----\F /-----\S /------\S?/--------\S?/-------\
 // |Sweep|->|Wave |->|Length|->|Envelope|->|DAC/Mix|
-// | 0-7 |  | 0-4 |  | 0-64 |  |   0-7  |  |       |
+// | 0-7 |  | 0-8 |  | 0-64 |  |   0-7  |  |       |
 // \-----/  \-----/  \------/  \--------/  \-------/
 
 
@@ -57,15 +58,39 @@ typedef struct gbaudio_channel_s {
     bool running;
     int tick;
 
+    // Clock Dividers
+    gbaudio_clock_t apu_clock;
+    gbaudio_clock_t seq_clock;
+    gbaudio_clock_t sweep_clock;
+    gbaudio_clock_t length_clock;
+    gbaudio_clock_t envelope_clock;
+
+    /// Current sweep count
+    bool sweep_enabled;
+    int sweep_count;
+    /// Current length count (counts down?)
+    int length_count;
+    /// Current envelope count
+    int envelope_count;
+
+    /// phase count, same tick rate as APU clock
+    /// When it hits frequency ticks duty_count
+    int phase_count;
+    /// Which phase of the duty cycle (0-7) we are in.
+    int duty_count;
+
+    /// Current amplitude (controlled by envelope)
+    uint8_t amplitude;
+
     // Running frequency in Hz.
     uint32_t frequency;
     // Amplitude to scale output signal.
-    uint16_t amplitude;
+    uint16_t scale_amplitude;
 
     // Sweep
     uint8_t sweep_time;
     bool sweep_addition;
-    uint8_t n_sweep;
+    uint8_t sweep_shift;
 
     // Length/Duty Cycle
     uint8_t length;
@@ -107,8 +132,8 @@ void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *
 /// Apply a sweep to this channel.
 /// time: 0-7, time/128Hz - time at each frequency
 /// addition: increase/decrease frequency
-/// n_shift: 0-7, Number of sweep shifts
-void gbaudio_channel_sweep(gbaudio_channel_t *channel, uint8_t time, bool addition, uint8_t n_shift);
+/// shift: 0-7, Size of sweep shift
+void gbaudio_channel_sweep(gbaudio_channel_t *channel, uint8_t time, bool addition, uint8_t shift);
 
 /// Set the length and duty pattern
 /// length: 0-63 - length of sound (64-length) / 256 seconds
