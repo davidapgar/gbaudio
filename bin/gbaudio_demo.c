@@ -21,6 +21,7 @@ exit
 #include <gbaudio/freq_gen.h>
 #include <gbaudio/freq_mod.h>
 #include <gbaudio/gbaudio_channel.h>
+#include <gbaudio/gbaudio_mixer.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
 #include <gbaudio/saw_gen.h>
@@ -272,6 +273,26 @@ int main(int argc, char* argv[])
     (void)channel1_a;
 
     audio_gen = &channel1_a;
+
+    gbaudio_mixer_t mixer;
+    gbaudio_mixer_init(&mixer);
+    gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both);
+    gbaudio_mixer_set_volume(&mixer, 0x07, 0x07);
+
+    gbaudio_channel_freq(&mixer.ch1, 440);
+    gbaudio_channel_volume_envelope(&mixer.ch1, 0x0f, true, 0);
+    gbaudio_channel_length_duty(&mixer.ch1, 0, wave_duty_50);
+    gbaudio_channel_trigger(&mixer.ch1, true, false);
+
+    gbaudio_channel_freq(&mixer.ch2, 260);
+    gbaudio_channel_volume_envelope(&mixer.ch2, 0x0f, true, 0);
+    gbaudio_channel_length_duty(&mixer.ch2, 0, wave_duty_50);
+    gbaudio_channel_trigger(&mixer.ch2, true, false);
+
+    audio_gen_t mixer_a = mixer_to_audio_gen(&mixer, 200);
+    (void)mixer_a;
+
+    audio_gen = &mixer_a;
 
     // AUDIO setup
     SDL_AudioSpec desired = {

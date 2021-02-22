@@ -4,8 +4,8 @@
 void gbaudio_mixer_init(gbaudio_mixer_t *mixer)
 {
     mixer->enabled = false;
-    gbaudio_channel_init(&mixer->channel1);
-    gbaudio_channel_init(&mixer->channel2);
+    gbaudio_channel_init(&mixer->ch1);
+    gbaudio_channel_init(&mixer->ch2);
 }
 
 gbaudio_mixer_t gbaudio_mixer()
@@ -16,7 +16,97 @@ gbaudio_mixer_t gbaudio_mixer()
     return mixer;
 }
 
-int8_t gbaudio_mixer_tick()
+rl_audio_t gbaudio_mixer_tick(gbaudio_mixer_t *mixer)
 {
-    return 0;
+    int8_t ch1_mono = gbaudio_channel_tick(&mixer->ch1);
+    int8_t ch2_mono = gbaudio_channel_tick(&mixer->ch2);
+
+    int8_t ch1_right = (mixer->ch1_output & output_terminal_right) ? ch1_mono : 0;
+    int8_t ch1_left = (mixer->ch1_output & output_terminal_left) ? ch1_mono : 0;
+
+    int8_t ch2_right = (mixer->ch2_output & output_terminal_right) ? ch2_mono : 0;
+    int8_t ch2_left = (mixer->ch2_output & output_terminal_left) ? ch2_mono : 0;
+
+    rl_audio_t ret = {
+        .right = ch1_right + ch2_right,
+        .left = ch1_left + ch2_left,
+    };
+
+    uint8_t vol_r = mixer->volume_right + 1;
+    uint8_t vol_l = mixer->volume_left + 1;
+
+    ret.right *= vol_r;
+    ret.left *= vol_l;
+    return ret;
+}
+
+void gbaudio_mixer_enable(gbaudio_mixer_t *mixer, bool enable)
+{
+    mixer->enabled = enable;
+    // TODO: Enable/disable underlying channels
+}
+
+void gbaudio_mixer_set_output(gbaudio_mixer_t *mixer, output_terminal_t ch1_output, output_terminal_t ch2_output)
+{
+    mixer->ch1_output = ch1_output;
+    mixer->ch2_output = ch2_output;
+}
+
+void gbaudio_mixer_set_volume(gbaudio_mixer_t *mixer, uint8_t right, uint8_t left)
+{
+    mixer->volume_right = right & 0x07;
+    mixer->volume_left = left & 0x07;
+}
+
+int16_t gbaudio_mixer_mono(gbaudio_mixer_t *mixer)
+{
+    rl_audio_t stereo = gbaudio_mixer_tick(mixer);
+    int16_t mono = (stereo.right + stereo.left) / 2;
+    return mono;
+}
+
+int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate)
+{
+    int period = (1<<20) / sample_rate;
+    int16_t sample = 0;
+
+    while (period) {
+        sample = gbaudio_mixer_mono(mixer);
+        --period;
+    }
+
+    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / mixer_max;
+    return scaled;
+}
+
+static int16_t gen_next(void *generator, int frequency)
+{
+    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
+    return gbaudio_mixer_next(self, frequency);
+}
+
+static void adjust_amp(void *generator, int amp)
+{
+    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
+    self->scale_amplitude += amp;
+}
+
+static int get_amp(void *generator)
+{
+    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
+    return self->scale_amplitude;
+}
+
+audio_gen_t mixer_to_audio_gen(gbaudio_mixer_t *mixer, int amplitude)
+{
+    mixer->scale_amplitude = amplitude;
+    audio_gen_t ret = {
+        .generator = mixer,
+        .next = gen_next,
+        .adjust_amplitude = adjust_amp,
+        .get_amplitude = get_amp,
+        .adjust_frequency = NULL,
+        .get_frequency = NULL,
+    };
+    return ret;
 }
