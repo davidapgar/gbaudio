@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <gbaudio/audio_gen.h>
 #include <gbaudio/gbaudio_clock.h>
 
 
@@ -173,7 +172,5 @@ void gbaudio_channel_trigger(gbaudio_channel_t *channel, bool trigger, bool sing
 /// Trigger the sound channel, and set the high frequency bits
 /// Modeled after the actual NF14 register.
 void gbaudio_channel_trigger_freq_high(gbaudio_channel_t *channel, bool trigger, bool single, uint8_t freq_high);
-
-audio_gen_t channel_to_audio_gen(gbaudio_channel_t *channel);
 
 #endif

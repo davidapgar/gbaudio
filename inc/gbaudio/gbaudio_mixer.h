@@ -6,7 +6,6 @@
 #include <stdbool.h>
 
 #include <gbaudio/gbaudio_channel.h>
-#include <gbaudio/audio_gen.h>
 
 // Mixer expects 5 bit signed sound input
 // Mixing is additive across all channels
@@ -65,7 +64,5 @@ int16_t gbaudio_mixer_mono(gbaudio_mixer_t *mixer);
 
 /// Convenience to tick the underlying channels to generate a PCM sample at sample_rate.
 int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate);
-
-audio_gen_t mixer_to_audio_gen(gbaudio_mixer_t *mixer, int amplitude);
 
 #endif

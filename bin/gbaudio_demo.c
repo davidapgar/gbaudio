@@ -22,6 +22,7 @@ exit
 #include <gbaudio/freq_mod.h>
 #include <gbaudio/gbaudio_channel.h>
 #include <gbaudio/gbaudio_mixer.h>
+#include <gbaudio/gbaudio_to_gen.h>
 #include <gbaudio/graphics.h>
 #include <gbaudio/lfsr_gen.h>
 #include <gbaudio/saw_gen.h>
@@ -278,6 +279,7 @@ int main(int argc, char* argv[])
     gbaudio_mixer_init(&mixer);
     gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both);
     gbaudio_mixer_set_volume(&mixer, 0x07, 0x07);
+    gbaudio_mixer_enable(&mixer, true);
 
     gbaudio_channel_freq(&mixer.ch1, 440);
     gbaudio_channel_volume_envelope(&mixer.ch1, 0x0f, true, 0);

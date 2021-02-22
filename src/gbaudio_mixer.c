@@ -18,6 +18,14 @@ gbaudio_mixer_t gbaudio_mixer()
 
 rl_audio_t gbaudio_mixer_tick(gbaudio_mixer_t *mixer)
 {
+    if (!mixer->enabled) {
+        rl_audio_t ret = {
+            .right = 0,
+            .left = 0,
+        };
+        return ret;
+    }
+
     int8_t ch1_mono = gbaudio_channel_tick(&mixer->ch1);
     int8_t ch2_mono = gbaudio_channel_tick(&mixer->ch2);
 
@@ -43,7 +51,7 @@ rl_audio_t gbaudio_mixer_tick(gbaudio_mixer_t *mixer)
 void gbaudio_mixer_enable(gbaudio_mixer_t *mixer, bool enable)
 {
     mixer->enabled = enable;
-    // TODO: Enable/disable underlying channels
+    // TODO: Reset all underlying channels if disabled
 }
 
 void gbaudio_mixer_set_output(gbaudio_mixer_t *mixer, output_terminal_t ch1_output, output_terminal_t ch2_output)
@@ -77,36 +85,4 @@ int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate)
 
     int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / mixer_max;
     return scaled;
-}
-
-static int16_t gen_next(void *generator, int frequency)
-{
-    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
-    return gbaudio_mixer_next(self, frequency);
-}
-
-static void adjust_amp(void *generator, int amp)
-{
-    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
-    self->scale_amplitude += amp;
-}
-
-static int get_amp(void *generator)
-{
-    gbaudio_mixer_t *self = (gbaudio_mixer_t *)generator;
-    return self->scale_amplitude;
-}
-
-audio_gen_t mixer_to_audio_gen(gbaudio_mixer_t *mixer, int amplitude)
-{
-    mixer->scale_amplitude = amplitude;
-    audio_gen_t ret = {
-        .generator = mixer,
-        .next = gen_next,
-        .adjust_amplitude = adjust_amp,
-        .get_amplitude = get_amp,
-        .adjust_frequency = NULL,
-        .get_frequency = NULL,
-    };
-    return ret;
 }
