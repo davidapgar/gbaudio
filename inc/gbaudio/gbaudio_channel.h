@@ -41,7 +41,7 @@ typedef enum {
 // \--------------/   \-------------------/
 //   |        |  |          |
 //   |        |  \-----------------\
-//   V 4      |             |      V
+//   V 4      |             |      V 8
 // /-----\    |  2  /-----\ |   /-----\
 // |Sweep|    \---->| Len | |   | Vol |
 // |128Hz|     /----|256Hz|-/   | 64Hz|
@@ -101,6 +101,9 @@ typedef struct gbaudio_channel_s {
     bool envelope_increase;
     uint8_t n_envelope;
 
+    // Counter/Continuous (repeat mode)
+    bool repeat;
+
     // Frequency
     uint16_t gbfreq;
 } gbaudio_channel_t;
@@ -121,13 +124,15 @@ void gbaudio_channel_set_amplitude(gbaudio_channel_t *channel, uint16_t amplitud
 /// Return the next sample for `sample_rate` frequency scaled by amplitude
 int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate);
 
-/// Return the next sample as 4-bit sample
-/// Returns: 0-15, with a DC offset applied
-/// 8 is "zero"/center value
-uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate);
+/// Return the next sample as 5-bit sample
+/// Returns: -15...15, with a DC offset applied
+int8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate);
 
 /// Fill `n_samples` from the audio channel.
 void gbaudio_channel_fill(gbaudio_channel_t *channel, int sample_rate, int16_t *samples, int n_samples);
+
+/// Return a normalized sample as next APU tick (1Mhz)
+int8_t gbaudio_channel_tick(gbaudio_channel_t *channel);
 
 /// Apply a sweep to this channel.
 /// time: 0-7, time/128Hz - time at each frequency

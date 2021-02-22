@@ -36,10 +36,8 @@ void gbaudio_channel_init(gbaudio_channel_t *channel)
 
 void gbaudio_channel_set_amplitude(gbaudio_channel_t *channel, uint16_t amplitude)
 {
-    channel->amplitude = amplitude;
+    channel->scale_amplitude = amplitude;
 }
-
-static uint8_t CENTER = 8;
 
 /// Return the current sample at APU clock sample frequency
 /// Normalized around 0.
@@ -121,12 +119,13 @@ static void tick_sweep(gbaudio_channel_t *channel, uint32_t seq_tick)
         if (channel->sweep_addition) {
             freq += shift;
             if (freq > 2047) {
-                // Also disable channel completely
+                // disable channel completely if overflow
                 channel->sweep_enabled = false;
                 channel->running = false;
                 freq = channel->gbfreq;
             }
         } else { // subtraction
+            // If result would be less than zero, use last value
             if (shift < freq) {
                 freq -= shift;
             }
@@ -138,17 +137,55 @@ static void tick_sweep(gbaudio_channel_t *channel, uint32_t seq_tick)
 
 static void tick_length(gbaudio_channel_t *channel, uint32_t seq_tick)
 {
+    uint32_t length_tick = gbaudio_clock_step(&channel->length_clock, seq_tick);
+
+    if (counter_tick(
+        &channel->length_count,
+        64 - channel->length,
+        length_tick)) {
+
+        // Length counter expired, repeat isn't set.
+        if (channel->length_count == 0 && !channel->repeat) {
+            channel->running = false;
+        }
+    }
 }
 
 static void tick_envelope(gbaudio_channel_t *channel, uint32_t seq_tick)
 {
+    uint32_t envelope_tick = gbaudio_clock_step(&channel->envelope_clock, seq_tick);
+
+    if (!channel->n_envelope) {
+        return;
+    }
+
+    if (counter_tick(
+        &channel->envelope_count,
+        channel->n_envelope,
+        envelope_tick)) {
+
+        uint8_t amplitude = channel->amplitude;
+
+        if (channel->envelope_increase) {
+            amplitude += (amplitude == 15 ? 0 : 1);
+        } else {
+            amplitude -= (amplitude == 0 ? 0 : 1);
+        }
+        // TODO: Stop the envelope if 15 or 0?
+        channel->amplitude = amplitude;
+    }
 }
 
 /// Input 4 clock tick
 /// Output is scaled by 2x to balance at zero.
 int8_t gbaudio_channel_tick(gbaudio_channel_t *channel)
 {
-    int8_t sample = gbaudio_channel_sample(channel);
+    int8_t sample;
+    if (channel->running) {
+        sample = gbaudio_channel_sample(channel);
+    } else {
+        sample = 0;
+    }
 
     uint32_t seq_tick = gbaudio_clock_step(&channel->seq_clock, 1);
 
@@ -162,92 +199,22 @@ int8_t gbaudio_channel_tick(gbaudio_channel_t *channel)
 
 int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate)
 {
-    uint8_t low_sample = gbaudio_channel_raw_next(channel, sample_rate);
-    int8_t base;
-    if (low_sample == CENTER) {
-        return 0;
-    } else if ((low_sample & 0x08) == 0x08) {
-        base = (low_sample & 0x07);
-    } else {
-        base = 0 - low_sample;
-    }
+    int8_t sample = gbaudio_channel_raw_next(channel, sample_rate);
+    int16_t scaled = (channel->scale_amplitude * sample) / 32;
 
-    return (channel->amplitude * (base)) / CENTER;
+    return scaled;
 }
-
-uint8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
+#include<stdio.h>
+int8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
 {
-    if (!channel->running) {
-        // TODO: Should this still tick forward?
-        return CENTER;
+    int period = (1<<20) / sample_rate;
+    int8_t sample = 0;
+
+    // Nearest neighbor
+    while (period) {
+        sample = gbaudio_channel_tick(channel);
+        period--;
     }
-
-    int tick = channel->tick;
-    // Sweep -> Timer -> Duty -> Envelope -> Mixer
-
-    // Sweep
-
-    // Timer
-
-    // Duty
-    int period = sample_rate / channel->frequency;
-    int tick_period = tick % period;
-    int phase = period / 8;
-
-    bool bit = true;
-
-    switch (channel->duty) {
-    case wave_duty_12:
-        if (tick_period < phase) {
-            bit = false;
-        }
-        break;
-
-    case wave_duty_25:
-        if (tick_period < (phase*2)) {
-            bit = false;
-        }
-        break;
-
-    case wave_duty_50:
-        if (tick_period < (phase*4)) {
-            bit = false;
-        }
-        break;
-
-    case wave_duty_75:
-        if (tick_period < (phase*6)) {
-            bit = false;
-        }
-        break;
-    }
-
-    // Envelope
-    uint8_t envelope = channel->envelope_initial;
-
-    // Mixer - Adjust DC offset
-    uint8_t sample;
-    if (envelope == 0) {
-        sample = CENTER;
-    } else {
-        // e = 1, sample = 1 or 0
-        // sa = 8 or 7
-        // e = 2, sample = 2 or 0
-        // sa = 9 or 7
-        // e = 8, sample = 8 or 0
-        // sa = 12 or
-        // e = 15, sample = 15 or 0
-        // sa = 15 or 0
-        // 15 0x0f -> 0x07, 0x08
-        // high = 8 + 7 (0x0f), low = 8 - 8 (0x0)
-        // 14 0x0e -> 0x07, 0x07
-        // high = 8 + 7 (0x0f), low = 8 - 7 (0x01)
-
-        uint8_t up = (envelope >> 1);
-        uint8_t down = (envelope >> 1) + (envelope & 0x01);
-        sample = bit ? (CENTER + up) : (CENTER - down);
-    }
-    channel->tick = tick + 1;
     return sample;
 }
 
@@ -263,6 +230,9 @@ void gbaudio_channel_sweep(gbaudio_channel_t *channel, uint8_t time, bool additi
     channel->sweep_time = (time & 0x07);
     channel->sweep_addition = addition;
     channel->sweep_shift = (shift & 0x07);
+    if (channel->sweep_time) {
+        channel->sweep_enabled = true;
+    }
 }
 
 void gbaudio_channel_length_duty(gbaudio_channel_t *channel, uint8_t length, wave_duty_t duty)
@@ -276,6 +246,8 @@ void gbaudio_channel_volume_envelope(gbaudio_channel_t *channel, uint8_t initial
     channel->envelope_initial = (initial & 0x0F);
     channel->envelope_increase = increase;
     channel->n_envelope = n_envelope;
+
+    channel->amplitude = channel->envelope_initial;
 }
 
 static void update_freq(gbaudio_channel_t *channel)
@@ -322,6 +294,7 @@ void gbaudio_channel_trigger(gbaudio_channel_t *channel, bool trigger, bool sing
         channel->running = true;
         channel->tick = 0;
     }
+    channel->repeat = !single;
 }
 
 void gbaudio_channel_trigger_freq_high(gbaudio_channel_t *channel, bool trigger, bool single, uint8_t freq_high)
@@ -339,13 +312,19 @@ static int16_t gen_next(void *generator, int frequency)
 static void adjust_amp(void *generator, int amp)
 {
     gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
-    self->amplitude += amp;
+    self->scale_amplitude += amp;
 }
 
 static int get_amp(void *generator)
 {
     gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
-    return self->amplitude;
+    return self->scale_amplitude;
+}
+
+static int get_freq(void *generator)
+{
+    gbaudio_channel_t *self = (gbaudio_channel_t *)generator;
+    return self->frequency;
 }
 
 audio_gen_t channel_to_audio_gen(gbaudio_channel_t *channel)
@@ -356,7 +335,7 @@ audio_gen_t channel_to_audio_gen(gbaudio_channel_t *channel)
         .adjust_amplitude = adjust_amp,
         .get_amplitude = get_amp,
         .adjust_frequency = NULL,
-        .get_frequency = NULL,
+        .get_frequency = get_freq,
     };
     return ret;
 }

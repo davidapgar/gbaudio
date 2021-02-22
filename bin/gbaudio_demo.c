@@ -262,8 +262,10 @@ int main(int argc, char* argv[])
     gbaudio_channel_t channel1;
     gbaudio_channel_init(&channel1);
     gbaudio_channel_freq(&channel1, 440);
-    gbaudio_channel_volume_envelope(&channel1, 0x0f, 0, 0);
-    gbaudio_channel_set_amplitude(&channel1, 80);
+    gbaudio_channel_volume_envelope(&channel1, 0x0f, true, 0);
+    gbaudio_channel_set_amplitude(&channel1, 200);
+    gbaudio_channel_length_duty(&channel1, 0, wave_duty_50);
+    gbaudio_channel_sweep(&channel1, 1, true, 7);
     gbaudio_channel_trigger(&channel1, true, false);
 
     audio_gen_t channel1_a = channel_to_audio_gen(&channel1);
