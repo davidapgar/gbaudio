@@ -56,7 +56,6 @@ typedef enum {
 
 typedef struct gbaudio_channel_s {
     bool running;
-    int tick;
 
     // Clock Dividers
     gbaudio_clock_t apu_clock;

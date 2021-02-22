@@ -292,7 +292,12 @@ void gbaudio_channel_trigger(gbaudio_channel_t *channel, bool trigger, bool sing
 {
     if (trigger) {
         channel->running = true;
-        channel->tick = 0;
+        channel->sweep_count = 0;
+        channel->length_count = 0;
+        channel->envelope_count = 0;
+        if (channel->sweep_time) {
+            channel->sweep_enabled = true;
+        }
     }
     channel->repeat = !single;
 }
