@@ -62,6 +62,10 @@ void audio_callback(void *userdata, Uint8* stream, int len)
 
     // Silence the base stream.
     SDL_memset(stream, 0, len);
+    if (!audio_gen) {
+        return;
+    }
+
     if (len > abuf_len) {
         printf("stream buffer too large\n");
     }
@@ -155,6 +159,171 @@ void adjust_audio_gen(audio_gen_t *audio_gen, char key)
     line_update(&lineview.line, buf);
 }
 
+void main_loop(SDL_AudioDeviceID dev,
+    audio_gen_t **audio_gen,
+    SDL_Renderer *renderer,
+    audioview_t *audioview,
+    lineview_t *lineview,
+    TTF_Font *font,
+    SDL_Color textcolor
+)
+{
+    freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
+    audio_gen_t freq_audio = freq_to_audio_gen(&gen_real);
+    lfsr_gen_init(&lfsr_real, amplitude, false, 8);
+    audio_gen_t lfsr_audio = lfsr_to_audio_gen(&lfsr_real);
+
+    sweep_gen_t sweep_gen;
+    sweep_gen_init(&sweep_gen, &freq_audio, true, 2, 7, 4);
+    audio_gen_t sweep_audio = sweep_to_audio_gen(&sweep_gen);
+
+    *audio_gen = &freq_audio;
+
+    freq_gen_t carrier;
+    freq_gen_init(&carrier, amplitude, note_freq, duty_50);
+    audio_gen_t carrier_a = freq_to_audio_gen(&carrier);
+    (void)carrier_a;
+
+    freq_gen_t modulator;
+    freq_gen_init(&modulator, amplitude, 20, duty_50);
+    audio_gen_t modulator_a = freq_to_audio_gen(&modulator);
+    (void)modulator_a;
+
+    saw_gen_t saw;
+    saw_gen_init(&saw, amplitude, note_freq);
+    audio_gen_t saw_audio = saw_to_audio_gen(&saw);
+
+    saw_gen_t saw2;
+    saw_gen_init(&saw2, amplitude, 20);
+    audio_gen_t saw_audio2 = saw_to_audio_gen(&saw2);
+
+    *audio_gen = &saw_audio;
+
+    freq_mod_t freq_mod;
+    //freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
+    freq_mod_init(&freq_mod, &saw_audio, &saw_audio2);
+    audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
+
+    *audio_gen = &freq_mod_audio;
+
+    gbaudio_channel_t channel1;
+    gbaudio_channel_init(&channel1);
+    gbaudio_channel_freq(&channel1, 440);
+    gbaudio_channel_volume_envelope(&channel1, 0x0f, true, 0);
+    gbaudio_channel_set_amplitude(&channel1, 200);
+    gbaudio_channel_length_duty(&channel1, 0, wave_duty_50);
+    gbaudio_channel_sweep(&channel1, 1, true, 7);
+    gbaudio_channel_trigger(&channel1, true, false);
+
+    audio_gen_t channel1_a = channel_to_audio_gen(&channel1);
+    (void)channel1_a;
+
+    *audio_gen = &channel1_a;
+
+    gbaudio_mixer_t mixer;
+    gbaudio_mixer_init(&mixer);
+    gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both);
+    gbaudio_mixer_set_volume(&mixer, 0x0f, 0x0f);
+    gbaudio_mixer_enable(&mixer, true);
+
+    gbaudio_channel_freq(&mixer.ch1, 440);
+    gbaudio_channel_volume_envelope(&mixer.ch1, 0x0f, true, 0);
+    gbaudio_channel_length_duty(&mixer.ch1, 0, wave_duty_50);
+    gbaudio_channel_trigger(&mixer.ch1, true, false);
+
+    gbaudio_channel_freq(&mixer.ch2, 260);
+    gbaudio_channel_volume_envelope(&mixer.ch2, 0x0f, true, 0);
+    gbaudio_channel_length_duty(&mixer.ch2, 0, wave_duty_50);
+    gbaudio_channel_trigger(&mixer.ch2, true, false);
+
+    audio_gen_t mixer_a = mixer_to_audio_gen(&mixer, 200);
+    (void)mixer_a;
+
+    *audio_gen = &mixer_a;
+    *audio_gen = &freq_audio;
+
+    Uint32 last = SDL_GetTicks();
+
+    SDL_Event event;
+    while (true) {
+        bool quit = false;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+            char key = downkey(&event);
+            if (key != '\0') {
+                switch (key) {
+                case 'q':
+                    quit = true;
+                    break;
+                case 'c':
+                    SDL_PauseAudioDevice(dev, 0);
+                    break;
+                case 's':
+                    SDL_PauseAudioDevice(dev, 1);
+                    break;
+                case 'a':
+                    if (*audio_gen == &freq_audio) {
+                        *audio_gen = &lfsr_audio;
+                    } else if (*audio_gen == &lfsr_audio) {
+                        *audio_gen = &sweep_audio;
+                        sweep_gen_reset(&sweep_gen);
+                    } else if (*audio_gen == &sweep_audio) {
+                        *audio_gen = &freq_mod_audio;
+                    } else {
+                        *audio_gen = &freq_audio;
+                    }
+                    break;
+                case 'u':
+                case 'd':
+                case 'l':
+                case 'r':
+                case 'w':
+                    if (*audio_gen == &freq_audio) {
+                        adjust_freq_gen(&gen_real, key);
+                    } else if (*audio_gen == &lfsr_audio) {
+                        adjust_lfsr_gen(&lfsr_real, key);
+                    } else if (*audio_gen == &sweep_audio) {
+                        adjust_audio_gen(*audio_gen, key);
+                        if (key == 'w') {
+                            sweep_gen.change = !sweep_gen.change;
+                        }
+                    } else {
+                        adjust_audio_gen(*audio_gen, key);
+                    }
+                    break;
+                case 'p':
+                    sweep_gen_reset(&sweep_gen);
+                    break;
+                }
+            }
+        }
+        if (quit) {
+            break;
+        }
+        // White background
+        //SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0);
+        // Gameboy "white" background (screen off color)
+        SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
+        SDL_RenderClear(renderer);
+
+        SDL_LockAudioDevice(dev);
+        draw_audio(audioview->texture, abuf, abuf_len);
+        SDL_UnlockAudioDevice(dev);
+        audioview_display(audioview, renderer);
+        lineview_display(lineview, renderer, font, textcolor);
+
+        // Present
+        SDL_RenderPresent(renderer);
+
+        Uint32 cur = SDL_GetTicks();
+        if (cur - last < 16) {
+            SDL_Delay(cur-last);
+        }
+    }
+}
+
 int const width = 1024;
 int const height = 144 + 16;
 
@@ -218,83 +387,12 @@ int main(int argc, char* argv[])
         .b = 0x20,
         .a = 0xff,
     };
+
     lineview_init(&lineview, width, 16);
     lineview.view.frame.x = 0;
     lineview.view.frame.y = 144;
 
-
-    freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
-    audio_gen_t freq_audio = freq_to_audio_gen(&gen_real);
-    lfsr_gen_init(&lfsr_real, amplitude, false, 8);
-    audio_gen_t lfsr_audio = lfsr_to_audio_gen(&lfsr_real);
-
-    sweep_gen_t sweep_gen;
-    sweep_gen_init(&sweep_gen, &freq_audio, true, 2, 7, 4);
-    audio_gen_t sweep_audio = sweep_to_audio_gen(&sweep_gen);
-
-    audio_gen_t *audio_gen = &freq_audio;
-
-    freq_gen_t carrier;
-    freq_gen_init(&carrier, amplitude, note_freq, duty_50);
-    audio_gen_t carrier_a = freq_to_audio_gen(&carrier);
-    (void)carrier_a;
-
-    freq_gen_t modulator;
-    freq_gen_init(&modulator, amplitude, 20, duty_50);
-    audio_gen_t modulator_a = freq_to_audio_gen(&modulator);
-    (void)modulator_a;
-
-    saw_gen_t saw;
-    saw_gen_init(&saw, amplitude, note_freq);
-    audio_gen_t saw_audio = saw_to_audio_gen(&saw);
-
-    saw_gen_t saw2;
-    saw_gen_init(&saw2, amplitude, 20);
-    audio_gen_t saw_audio2 = saw_to_audio_gen(&saw2);
-
-    audio_gen = &saw_audio;
-
-    freq_mod_t freq_mod;
-    //freq_mod_init(&freq_mod, &carrier_a, &modulator_a);
-    freq_mod_init(&freq_mod, &saw_audio, &saw_audio2);
-    audio_gen_t freq_mod_audio = freq_mod_to_audio_gen(&freq_mod);
-
-    audio_gen = &freq_mod_audio;
-
-    gbaudio_channel_t channel1;
-    gbaudio_channel_init(&channel1);
-    gbaudio_channel_freq(&channel1, 440);
-    gbaudio_channel_volume_envelope(&channel1, 0x0f, true, 0);
-    gbaudio_channel_set_amplitude(&channel1, 200);
-    gbaudio_channel_length_duty(&channel1, 0, wave_duty_50);
-    gbaudio_channel_sweep(&channel1, 1, true, 7);
-    gbaudio_channel_trigger(&channel1, true, false);
-
-    audio_gen_t channel1_a = channel_to_audio_gen(&channel1);
-    (void)channel1_a;
-
-    audio_gen = &channel1_a;
-
-    gbaudio_mixer_t mixer;
-    gbaudio_mixer_init(&mixer);
-    gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both);
-    gbaudio_mixer_set_volume(&mixer, 0x07, 0x07);
-    gbaudio_mixer_enable(&mixer, true);
-
-    gbaudio_channel_freq(&mixer.ch1, 440);
-    gbaudio_channel_volume_envelope(&mixer.ch1, 0x0f, true, 0);
-    gbaudio_channel_length_duty(&mixer.ch1, 0, wave_duty_50);
-    gbaudio_channel_trigger(&mixer.ch1, true, false);
-
-    gbaudio_channel_freq(&mixer.ch2, 260);
-    gbaudio_channel_volume_envelope(&mixer.ch2, 0x0f, true, 0);
-    gbaudio_channel_length_duty(&mixer.ch2, 0, wave_duty_50);
-    gbaudio_channel_trigger(&mixer.ch2, true, false);
-
-    audio_gen_t mixer_a = mixer_to_audio_gen(&mixer, 200);
-    (void)mixer_a;
-
-    audio_gen = &mixer_a;
+    audio_gen_t *audio_gen = NULL;
 
     // AUDIO setup
     SDL_AudioSpec desired = {
@@ -309,86 +407,15 @@ int main(int argc, char* argv[])
     };
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 
-    Uint32 last = SDL_GetTicks();
+    main_loop(dev,
+        &audio_gen,
+        renderer,
+        audioview,
+        &lineview,
+        font,
+        textcolor
+        );
 
-    SDL_Event event;
-    while (true) {
-        bool quit = false;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                quit = true;
-            }
-            char key = downkey(&event);
-            if (key != '\0') {
-                switch (key) {
-                case 'q':
-                    quit = true;
-                    break;
-                case 'c':
-                    SDL_PauseAudioDevice(dev, 0);
-                    break;
-                case 's':
-                    SDL_PauseAudioDevice(dev, 1);
-                    break;
-                case 'a':
-                    if (audio_gen == &freq_audio) {
-                        audio_gen = &lfsr_audio;
-                    } else if (audio_gen == &lfsr_audio) {
-                        audio_gen = &sweep_audio;
-                        sweep_gen_reset(&sweep_gen);
-                    } else if (audio_gen == &sweep_audio) {
-                        audio_gen = &freq_mod_audio;
-                    } else {
-                        audio_gen = &freq_audio;
-                    }
-                    break;
-                case 'u':
-                case 'd':
-                case 'l':
-                case 'r':
-                case 'w':
-                    if (audio_gen == &freq_audio) {
-                        adjust_freq_gen(&gen_real, key);
-                    } else if (audio_gen == &lfsr_audio) {
-                        adjust_lfsr_gen(&lfsr_real, key);
-                    } else if (audio_gen == &sweep_audio) {
-                        adjust_audio_gen(audio_gen, key);
-                        if (key == 'w') {
-                            sweep_gen.change = !sweep_gen.change;
-                        }
-                    } else {
-                        adjust_audio_gen(audio_gen, key);
-                    }
-                    break;
-                case 'p':
-                    sweep_gen_reset(&sweep_gen);
-                    break;
-                }
-            }
-        }
-        if (quit) {
-            break;
-        }
-        // White background
-        //SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0);
-        // Gameboy "white" background (screen off color)
-        SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
-        SDL_RenderClear(renderer);
-
-        SDL_LockAudioDevice(dev);
-        draw_audio(audioview->texture, abuf, abuf_len);
-        SDL_UnlockAudioDevice(dev);
-        audioview_display(audioview, renderer);
-        lineview_display(&lineview, renderer, font, textcolor);
-
-        // Present
-        SDL_RenderPresent(renderer);
-
-        Uint32 cur = SDL_GetTicks();
-        if (cur - last < 16) {
-            SDL_Delay(cur-last);
-        }
-    }
     SDL_CloseAudioDevice(dev);
 
     SDL_DestroyRenderer(renderer);
