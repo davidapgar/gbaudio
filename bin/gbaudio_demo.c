@@ -14,6 +14,8 @@ exit
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <SDL.h>
 #include <SDL_audio.h>
 #include <SDL_ttf.h>
@@ -54,6 +56,7 @@ static lfsr_gen_t lfsr_real;
 
 static int const abuf_len = 8192;
 static uint16_t abuf[abuf_len];
+static int raw_file = 0;
 
 void audio_callback(void *userdata, Uint8* stream, int len)
 {
@@ -77,6 +80,18 @@ void audio_callback(void *userdata, Uint8* stream, int len)
     //SDL_MixAudioFormat(stream, abuf, AUDIO_S8, len, SDL_MIX_MAXVOLUME / 4);
 //    SDL_MixAudioFormat(stream, abuf, AUDIO_S8, len, 32);
     memcpy(stream, abuf, len);
+    if (raw_file != 0) {
+        size_t written = 0;
+        while (written < len) {
+            ssize_t result = write(raw_file, abuf, len);
+            if (result < 0) {
+                close(raw_file);
+                raw_file = 0;
+                break;
+            }
+            written += result;
+        }
+    }
 }
 
 void adjust_freq_gen(freq_gen_t *gen, char key)
@@ -503,6 +518,8 @@ void replay_loop(SDL_AudioDeviceID dev,
     audio_gen_t mixer_audio = mixer_to_audio_gen(&mixer, 200);
     *audio_gen = &mixer_audio;
 
+    //raw_file = open("audio.raw", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+
     size_t idx = 0;
 
     Uint32 last = SDL_GetTicks();
@@ -575,6 +592,7 @@ void replay_loop(SDL_AudioDeviceID dev,
         }
         last = cur;
     }
+    close(raw_file);
 }
 
 static size_t const replay_log_size = 1<<20;
