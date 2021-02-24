@@ -83,6 +83,8 @@ int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate)
         --period;
     }
 
-    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / mixer_max;
+    // TODO: Better audio signal scaling
+//    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / mixer_max;
+    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude);
     return scaled;
 }

@@ -324,13 +324,269 @@ void main_loop(SDL_AudioDeviceID dev,
     }
 }
 
+typedef struct {
+    uint32_t tick;
+    uint16_t addr;
+    uint8_t val;
+} replay_log_t;
+
+typedef enum {
+    apu_reg_nr10 = 0xFF10,
+    apu_reg_nr11 = 0xFF11,
+    apu_reg_nr12 = 0xFF12,
+    apu_reg_nr13 = 0xFF13,
+    apu_reg_nr14 = 0xFF14,
+
+    apu_reg_nr21 = 0xFF16,
+    apu_reg_nr22 = 0xFF17,
+    apu_reg_nr23 = 0xFF18,
+    apu_reg_nr24 = 0xFF19,
+
+    apu_reg_nr30 = 0xFF1A,
+    apu_reg_nr31 = 0xFF1B,
+    apu_reg_nr32 = 0xFF1C,
+    apu_reg_nr33 = 0xFF1D,
+    apu_reg_nr34 = 0xFF1E,
+
+    apu_reg_nr41 = 0xFF20,
+    apu_reg_nr42 = 0xFF21,
+    apu_reg_nr43 = 0xFF22,
+    apu_reg_nr44 = 0xFF23,
+
+    apu_reg_nr50 = 0xFF24,
+    apu_reg_nr51 = 0xFF25,
+    apu_reg_nr52 = 0xFF26,
+
+    apu_reg_wave_start = 0xFF30,
+    apu_reg_wave_end = 0xFF3F,
+} apu_reg;
+
+void apu_reg_write(gbaudio_mixer_t *mixer, uint16_t reg, uint8_t value)
+{
+    switch (reg) {
+    case apu_reg_nr10: {
+        uint8_t time = (value >> 4) & 0x07;
+        bool addition = (value & 0x08) == 0x08 ? false : true;
+        uint8_t shift = (value >> 0) & 0x07;
+        gbaudio_channel_sweep(&mixer->ch1, time, addition, shift);
+        break;
+        }
+    case apu_reg_nr11: {
+        uint8_t length = (value >> 0) & 0x3F;
+        wave_duty_t duty = (value >> 6) & 0x03;
+        gbaudio_channel_length_duty(&mixer->ch1, length, duty);
+        break;
+        }
+    case apu_reg_nr12: {
+        uint8_t initial = (value >> 4) & 0x0F;
+        bool increase = (value & 0x08) == 0x08 ? true : false;
+        uint8_t n_envelope = (value >> 0) & 0x07;
+        gbaudio_channel_volume_envelope(&mixer->ch1, initial, increase, n_envelope);
+        break;
+        }
+    case apu_reg_nr13: {
+        gbaudio_channel_gbfreq_low(&mixer->ch1, value);
+        break;
+        }
+    case apu_reg_nr14: {
+        bool trigger = (value & 0x80) == 0x80 ? true : false;
+        bool single = (value & 0x40) == 0x40 ? true : false;
+        uint8_t freq_high = (value >> 0) & 0x07;
+        gbaudio_channel_trigger_freq_high(&mixer->ch1, trigger, single, freq_high);
+        break;
+        }
+
+    case apu_reg_nr21: {
+        uint8_t length = (value >> 0) & 0x3F;
+        wave_duty_t duty = (value >> 6) & 0x03;
+        gbaudio_channel_length_duty(&mixer->ch2, length, duty);
+        break;
+        }
+    case apu_reg_nr22: {
+        uint8_t initial = (value >> 4) & 0x0F;
+        bool increase = (value & 0x08) == 0x08 ? true : false;
+        uint8_t n_envelope = (value >> 0) & 0x07;
+        gbaudio_channel_volume_envelope(&mixer->ch2, initial, increase, n_envelope);
+        break;
+        }
+    case apu_reg_nr23: {
+        gbaudio_channel_gbfreq_low(&mixer->ch2, value);
+        break;
+        }
+    case apu_reg_nr24: {
+        bool trigger = (value & 0x80) == 0x80 ? true : false;
+        bool single = (value & 0x40) == 0x40 ? true : false;
+        uint8_t freq_high = (value >> 0) & 0x07;
+        gbaudio_channel_trigger_freq_high(&mixer->ch2, trigger, single, freq_high);
+        break;
+        }
+
+    case apu_reg_nr41:
+        break;
+    case apu_reg_nr42:
+        break;
+    case apu_reg_nr43:
+        break;
+    case apu_reg_nr44:
+        break;
+
+    case apu_reg_nr50: {
+        uint8_t right = (value >> 4) & 0x07;
+        uint8_t left = (value >> 0) & 0x07;
+        gbaudio_mixer_set_volume(mixer, right, left);
+        break;
+        }
+    case apu_reg_nr51: {
+        output_terminal_t ch1 =
+            ((value >> 0) & 0x01) | ((value >> 3) & 0x02);
+        output_terminal_t ch2 =
+            ((value >> 1) & 0x01) | ((value >> 4) & 0x02);
+        gbaudio_mixer_set_output(mixer, ch1, ch2);
+        break;
+        }
+    case apu_reg_nr52: {
+        bool enable = (value & 0x80) == 0x80 ? true : false;
+        gbaudio_mixer_enable(mixer, enable);
+        break;
+        }
+
+    case apu_reg_nr30:
+    case apu_reg_nr31:
+    case apu_reg_nr32:
+    case apu_reg_nr33:
+    case apu_reg_nr34:
+
+    default:
+        break;
+    }
+}
+
+bool load_replay(char const *fname, replay_log_t *replay, size_t *len)
+{
+    size_t idx = 0;
+    FILE *fp = fopen(fname, "r");
+    if (!fp) {
+        return false;
+    }
+    while (idx < *len) {
+        unsigned int tick;
+        unsigned int addr;
+        unsigned int val;
+        if (fscanf(fp, "%x %x %x ", &tick, &addr, &val) < 3) {
+            break;
+        }
+        replay[idx] = (replay_log_t){
+            .tick = tick,
+            .addr = addr,
+            .val = val,
+        };
+        ++idx;
+    }
+    fclose(fp);
+    *len = idx;
+    return true;
+}
+
+void replay_loop(SDL_AudioDeviceID dev,
+    audio_gen_t **audio_gen,
+    SDL_Renderer *renderer,
+    audioview_t *audioview,
+    lineview_t *lineview,
+    TTF_Font *font,
+    SDL_Color textcolor,
+    replay_log_t *replay_log,
+    size_t len
+)
+{
+    gbaudio_mixer_t mixer;
+    gbaudio_mixer_init(&mixer);
+    audio_gen_t mixer_audio = mixer_to_audio_gen(&mixer, 200);
+    *audio_gen = &mixer_audio;
+
+    size_t idx = 0;
+
+    Uint32 last = SDL_GetTicks();
+    SDL_Event event;
+    SDL_PauseAudioDevice(dev, 0);
+
+    // 67k ticks per frame (~16ms)
+    size_t frames = 0;
+    while (idx < len) {
+        bool quit = false;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+            char key = downkey(&event);
+            if (key != '\0') {
+                switch (key) {
+                case 'q':
+                    quit = true;
+                    break;
+                case 'c':
+                    SDL_PauseAudioDevice(dev, 0);
+                    break;
+                case 's':
+                    SDL_PauseAudioDevice(dev, 1);
+                    break;
+                case 'u':
+                case 'd':
+                case 'l':
+                case 'r':
+                case 'w':
+                    adjust_audio_gen(*audio_gen, key);
+                    break;
+                }
+            }
+        }
+        if (quit) {
+            break;
+        }
+
+        do {
+            replay_log_t log = replay_log[idx];
+            // Divide by 64k to approximate ticks in frames
+            size_t frame_ticks = log.tick >> 16;
+            if (frame_ticks <= frames) {
+                apu_reg_write(&mixer, log.addr, log.val);
+                frames = 0;
+                ++idx;
+            } else {
+                break;
+            }
+        } while (idx < len);
+        ++frames;
+
+        SDL_SetRenderDrawColor(renderer, 0xCA, 0xDC, 0x9F, 0xFF);
+        SDL_RenderClear(renderer);
+
+        SDL_LockAudioDevice(dev);
+        draw_audio(audioview->texture, abuf, abuf_len);
+        SDL_UnlockAudioDevice(dev);
+        audioview_display(audioview, renderer);
+        lineview_display(lineview, renderer, font, textcolor);
+
+        // Present
+        SDL_RenderPresent(renderer);
+
+        Uint32 cur = SDL_GetTicks();
+        if (cur - last < 16) {
+            SDL_Delay(cur-last);
+        }
+        last = cur;
+    }
+}
+
+static size_t const replay_log_size = 1<<20;
+static replay_log_t replay_log[replay_log_size];
+
 int const width = 1024;
 int const height = 144 + 16;
 
 int main(int argc, char* argv[])
 {
     if (argc < 2) {
-        printf("Usage: %s <font>\n", argv[0]);
+        printf("Usage: %s <font> <replay log?>\n", argv[0]);
         return 1;
     }
 
@@ -407,14 +663,36 @@ int main(int argc, char* argv[])
     };
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 
-    main_loop(dev,
-        &audio_gen,
-        renderer,
-        audioview,
-        &lineview,
-        font,
-        textcolor
-        );
+    if (argc == 3) {
+        do {
+            size_t len = replay_log_size;
+            if (!load_replay(argv[2], replay_log, &len)) {
+                printf("Error loading replay log %s\n", argv[2]);
+                break;
+            }
+
+            printf("Loaded %lu log entries\n", len);
+            replay_loop(dev,
+                &audio_gen,
+                renderer,
+                audioview,
+                &lineview,
+                font,
+                textcolor,
+                replay_log,
+                len
+            );
+        } while (0);
+    } else {
+        main_loop(dev,
+            &audio_gen,
+            renderer,
+            audioview,
+            &lineview,
+            font,
+            textcolor
+            );
+    }
 
     SDL_CloseAudioDevice(dev);
 
