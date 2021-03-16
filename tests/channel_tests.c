@@ -2,6 +2,7 @@
 #include <tinyctest/tinyctest.h>
 
 #include <gbaudio/gbaudio_channel.h>
+#include <gbaudio/freq_gen.h>
 
 
 static gbaudio_channel_t channel_real;
@@ -109,6 +110,71 @@ TEST(envelope)
     CHECK_EQUAL(2, channel->amplitude, "Amplitude increases");
 }
 
+TEST(a440hz)
+{
+    // Set to 440hz
+    gbaudio_channel_freq(channel, 440);
+    CHECK_EQUAL(1751, channel->gbfreq, "1750 is ~440hz in gb frequency (131,072/(2048-1751) = 441)");
+    gbaudio_channel_length_duty(channel, 0, wave_duty_50);
+    gbaudio_channel_volume_envelope(channel, 0x0f, 0, 0);
+    CHECK_EQUAL(wave_duty_50, channel->duty);
+
+    // At a clock/sample rate of 1Mhz, with a 50% duty cycle,
+    // 440hz has a 2377 tick period, which 1188 tick phase
+    for (int i = 0; i < 1188; ++i) {
+        CHECK_EQUAL(0x0f, gbaudio_channel_tick(channel));
+    }
+    for (int i = 0; i < 1188; ++i) {
+        CHECK_EQUAL(-0x0f, gbaudio_channel_tick(channel));
+    }
+}
+
+TEST(a440hzAt44100)
+{
+    // Set to 440hz
+    gbaudio_channel_freq(channel, 440);
+    // At 1Mhz, 441Hz has a 1/8 period of 297
+    // and a total period of 1188.
+    // At a duty cycle of 50, that's 594 per phase.
+    CHECK_EQUAL(1751, channel->gbfreq, "1751 is ~440hz in gb frequency (131,072/(2048-1751) = 441)");
+    gbaudio_channel_length_duty(channel, 0, wave_duty_50);
+    gbaudio_channel_volume_envelope(channel, 0x0f, 0, 0);
+    CHECK_EQUAL(wave_duty_50, channel->duty);
+
+    int i = 0;
+    while (i < 220) {
+        printf("%c ",
+            gbaudio_channel_raw_next(channel, 44100) < 0 ? '-' : '+');
+        i++;
+        if (i % 10 == 0) { printf("\n"); }
+    }
+    CHECK(false, "exit");
+
+    // At a sample rate of 44100Hz, with a 50% duty cycle,
+    // 440hz has a 100 tick period, which 50 tick phase
+    for (int i = 0; i < 50; ++i) {
+        CHECK_EQUAL(0x0f, gbaudio_channel_raw_next(channel, 44100));
+    }
+    for (int i = 0; i < 50; ++i) {
+        CHECK_EQUAL(-0x0f, gbaudio_channel_raw_next(channel, 44100));
+    }
+}
+
+TEST(fg440)
+{
+    freq_gen_t fg;
+    freq_gen_init(&fg, 15, 440, duty_50);
+
+    int i = 0;
+    while (i < 220) {
+        printf("%c ",
+            freq_gen_next(&fg, 44100) < 0 ? '-' : '+');
+        i++;
+        if (i % 10 == 0) { printf("\n"); }
+    }
+    CHECK(true);
+}
+
 int channel_tests()
 {
     RUN_TEST(tick_moves_sequence_and_phase);
@@ -117,5 +183,8 @@ int channel_tests()
     RUN_TEST(length);
     RUN_TEST(sweep);
     RUN_TEST(envelope);
+    RUN_TEST(a440hz);
+    RUN_TEST(a440hzAt44100);
+    RUN_TEST(fg440);
     return TEST_SUITE_RESULT;
 }

@@ -204,7 +204,7 @@ int16_t gbaudio_channel_next(gbaudio_channel_t *channel, int sample_rate)
 
     return scaled;
 }
-#include<stdio.h>
+
 int8_t gbaudio_channel_raw_next(gbaudio_channel_t *channel, int sample_rate)
 {
     int period = (1<<20) / sample_rate;
@@ -258,7 +258,7 @@ static void update_freq(gbaudio_channel_t *channel)
 void gbaudio_channel_gbfreq_low(gbaudio_channel_t *channel, uint8_t freq_low)
 {
     // Preserve high bits
-    uint16_t gbfreq = (channel->gbfreq & 0x0300);
+    uint16_t gbfreq = (channel->gbfreq & 0x0700);
     gbfreq |= freq_low;
 
     channel->gbfreq = gbfreq;
@@ -269,7 +269,7 @@ void gbaudio_channel_gbfreq_high(gbaudio_channel_t *channel, uint8_t freq_high)
 {
     // Preserve low bits
     uint16_t gbfreq = (channel->gbfreq & 0x00ff);
-    uint16_t high = (freq_high & 0x03);
+    uint16_t high = (freq_high & 0x07);
     channel->gbfreq = (high << 8) | gbfreq;
 
     update_freq(channel);

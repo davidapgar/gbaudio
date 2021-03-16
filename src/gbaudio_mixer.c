@@ -76,6 +76,7 @@ int16_t gbaudio_mixer_mono(gbaudio_mixer_t *mixer)
 int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate)
 {
     int period = (1<<20) / sample_rate;
+
     int16_t sample = 0;
 
     while (period) {
@@ -85,6 +86,6 @@ int16_t gbaudio_mixer_next(gbaudio_mixer_t *mixer, int sample_rate)
 
     // TODO: Better audio signal scaling
 //    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / mixer_max;
-    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude);
+    int16_t scaled = ((int32_t)sample * mixer->scale_amplitude) / 128;
     return scaled;
 }

@@ -46,7 +46,8 @@ char downkey(SDL_Event *event)
     return '\0';
 }
 
-static int const frequency = 44100;
+//static int const frequency = 44100;
+static int const frequency = 32768;
 
 static int const amplitude = 72;
 static int const note_freq = 440;
@@ -183,6 +184,7 @@ void main_loop(SDL_AudioDeviceID dev,
     SDL_Color textcolor
 )
 {
+    //freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
     freq_gen_init(&gen_real, amplitude, note_freq, duty_50);
     audio_gen_t freq_audio = freq_to_audio_gen(&gen_real);
     lfsr_gen_init(&lfsr_real, amplitude, false, 8);
@@ -241,21 +243,24 @@ void main_loop(SDL_AudioDeviceID dev,
     gbaudio_mixer_set_volume(&mixer, 0x0f, 0x0f);
     gbaudio_mixer_enable(&mixer, true);
 
-    gbaudio_channel_freq(&mixer.ch1, 440);
-    gbaudio_channel_volume_envelope(&mixer.ch1, 0x0f, true, 0);
+ //   gbaudio_channel_freq(&mixer.ch1, 440);
+    gbaudio_channel_gbfreq_low(&mixer.ch1, 0xd6);
+    gbaudio_channel_gbfreq_high(&mixer.ch1, 0x06);
+    gbaudio_channel_volume_envelope(&mixer.ch1, 0x07, true, 0);
     gbaudio_channel_length_duty(&mixer.ch1, 0, wave_duty_50);
     gbaudio_channel_trigger(&mixer.ch1, true, false);
 
     gbaudio_channel_freq(&mixer.ch2, 260);
     gbaudio_channel_volume_envelope(&mixer.ch2, 0x0f, true, 0);
     gbaudio_channel_length_duty(&mixer.ch2, 0, wave_duty_50);
-    gbaudio_channel_trigger(&mixer.ch2, true, false);
+    gbaudio_channel_trigger(&mixer.ch2, false, false);
 
     audio_gen_t mixer_a = mixer_to_audio_gen(&mixer, 200);
     (void)mixer_a;
 
     *audio_gen = &mixer_a;
-    *audio_gen = &freq_audio;
+//    *audio_gen = &freq_audio;
+//    raw_file = open("audio4.raw", O_WRONLY|O_CREAT|O_TRUNC, 0644);
 
     Uint32 last = SDL_GetTicks();
 

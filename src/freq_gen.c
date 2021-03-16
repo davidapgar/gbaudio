@@ -21,7 +21,7 @@ int16_t freq_gen_next(freq_gen_t *gen, int sample_freq)
     }
     int16_t ret;
 
-    int duty = period / 8;
+    int duty = period;
     switch (gen->duty) {
     case duty_12:
         // 12.5% down duty cycle
@@ -39,6 +39,7 @@ int16_t freq_gen_next(freq_gen_t *gen, int sample_freq)
         duty = duty * 6;
         break;
     }
+    duty = duty / 8;
     if (ticks < duty) {
         ret = gen->amplitude * -1;
     } else {
