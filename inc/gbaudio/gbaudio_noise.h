@@ -42,6 +42,8 @@
 //    |      |     | 0-64 |  |   0-7  |  |       |
 //    |------|     |------|  |--------|  |-------|
 typedef struct gbaudio_noise_s {
+    bool running;
+
     /// Clock Dividers
     gbaudio_clock_t seq_clock;
     gbaudio_clock_t length_clock;
