@@ -520,7 +520,7 @@ void replay_loop(SDL_AudioDeviceID dev,
 {
     gbaudio_mixer_t mixer;
     gbaudio_mixer_init(&mixer);
-    audio_gen_t mixer_audio = mixer_to_audio_gen(&mixer, 200);
+    audio_gen_t mixer_audio = mixer_to_audio_gen(&mixer, 15360);
     *audio_gen = &mixer_audio;
 
     //raw_file = open("audio.raw", O_WRONLY|O_CREAT|O_TRUNC, 0644);
