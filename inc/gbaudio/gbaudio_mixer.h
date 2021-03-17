@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include <gbaudio/gbaudio_channel.h>
+#include <gbaudio/gbaudio_noise.h>
 
 // Mixer expects 5 bit signed sound input
 // Mixing is additive across all channels
@@ -31,10 +32,13 @@ typedef struct gbaudio_mixer_s {
 
     gbaudio_channel_t ch1;
     gbaudio_channel_t ch2;
-    // TODO: WAV channel and LFSR channel
+    // TODO: WAV channel
+    gbaudio_noise_t ch4;
 
     output_terminal_t ch1_output;
     output_terminal_t ch2_output;
+    output_terminal_t ch3_output;
+    output_terminal_t ch4_output;
 
     uint8_t volume_right;
     uint8_t volume_left;
@@ -55,7 +59,7 @@ typedef struct rl_audio_s {
 rl_audio_t gbaudio_mixer_tick(gbaudio_mixer_t *mixer);
 
 void gbaudio_mixer_enable(gbaudio_mixer_t *mixer, bool enable);
-void gbaudio_mixer_set_output(gbaudio_mixer_t *mixer, output_terminal_t ch1_output, output_terminal_t ch2_output);
+void gbaudio_mixer_set_output(gbaudio_mixer_t *mixer, output_terminal_t ch1_output, output_terminal_t ch2_output, output_terminal_t ch3_output, output_terminal_t ch4_output);
 void gbaudio_mixer_set_volume(gbaudio_mixer_t *mixer, uint8_t right, uint8_t left);
 
 /// Convenience to merge stereo output back to mono.

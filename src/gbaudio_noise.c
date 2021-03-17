@@ -62,7 +62,7 @@ static void tick_lfsr(gbaudio_noise_t *noise)
 
         uint16_t lfsr = (noise->lfsr >> 1);
 
-        uint8_t bit = bit ^ (lfsr & 0x01);
+        bit = bit ^ (lfsr & 0x01);
         lfsr |= (bit << 14);
         if (noise->small_step) {
             lfsr |= (bit << 6);

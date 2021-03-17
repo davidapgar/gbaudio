@@ -239,7 +239,7 @@ void main_loop(SDL_AudioDeviceID dev,
 
     gbaudio_mixer_t mixer;
     gbaudio_mixer_init(&mixer);
-    gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both);
+    gbaudio_mixer_set_output(&mixer, output_terminal_both, output_terminal_both, output_terminal_both, output_terminal_both);
     gbaudio_mixer_set_volume(&mixer, 0x0f, 0x0f);
     gbaudio_mixer_enable(&mixer, true);
 
@@ -441,14 +441,31 @@ void apu_reg_write(gbaudio_mixer_t *mixer, uint16_t reg, uint8_t value)
         break;
         }
 
-    case apu_reg_nr41:
+    case apu_reg_nr41: {
+        uint8_t length = (value >> 0) & 0x3F;
+        gbaudio_noise_length(&mixer->ch4, length);
         break;
-    case apu_reg_nr42:
+        }
+    case apu_reg_nr42: {
+        uint8_t initial = (value >> 4) & 0x0F;
+        bool increase = (value & 0x08) == 0x08 ? true : false;
+        uint8_t n_envelope = (value >> 0) & 0x07;
+        gbaudio_noise_volume_envelope(&mixer->ch4, initial, increase, n_envelope);
         break;
-    case apu_reg_nr43:
+        }
+    case apu_reg_nr43: {
+        uint8_t shift_clock = (value >> 4) & 0x0F;
+        bool small_step = (value & 0x08) == 0x08 ? true : false;
+        uint8_t prescale = (value >> 0) & 0x07;
+        gbaudio_noise_polynomial_counter(&mixer->ch4, shift_clock, small_step, prescale);
         break;
-    case apu_reg_nr44:
+        }
+    case apu_reg_nr44: {
+        bool trigger = (value & 0x80) == 0x80 ? true : false;
+        bool single = (value & 0x40) == 0x40 ? true : false;
+        gbaudio_noise_trigger(&mixer->ch4, trigger, single);
         break;
+        }
 
     case apu_reg_nr50: {
         uint8_t right = (value >> 4) & 0x07;
@@ -461,7 +478,12 @@ void apu_reg_write(gbaudio_mixer_t *mixer, uint16_t reg, uint8_t value)
             ((value >> 0) & 0x01) | ((value >> 3) & 0x02);
         output_terminal_t ch2 =
             ((value >> 1) & 0x01) | ((value >> 4) & 0x02);
-        gbaudio_mixer_set_output(mixer, ch1, ch2);
+        output_terminal_t ch3 =
+            ((value >> 2) & 0x01) | ((value >> 5) & 0x02);
+        output_terminal_t ch4 =
+            ((value >> 3) & 0x01) | ((value >> 6) & 0x02);
+
+        gbaudio_mixer_set_output(mixer, ch1, ch2, ch3, ch4);
         break;
         }
     case apu_reg_nr52: {
